@@ -1,0 +1,93 @@
+{
+	"title":  "%(entryTitle)s",
+	"release_date": "%(releaseDate)s",
+	"experiment_type": %(experimentType)d,
+	"cross_references": [],
+	"authors": [
+		{
+		  "name": "(%(entryAuthorStr)s)",
+		  "order_id": 0,
+		  "author_orcid": null
+		}
+    ],
+	"corresponding_author": {
+		"author_orcid": null,
+		"middle_name": null,
+		"organization": "%(caOrg)s",
+		"street": null,
+		"town_or_city": null,
+		"state_or_province": null,
+		"post_or_zip": null,
+		"telephone": null,
+		"fax": null,
+		"first_name": "%(caFirstName)s",
+		"last_name": "%(caLastName)s",
+		"email": "%(caEmail)s",
+		"country": "%(caCountry)s"
+	},
+	"principal_investigator": [
+	{
+	    "author_orcid": null,
+	    "middle_name": null,
+	    "organization": "%(piOrg)s",
+	    "street": null,
+	    "town_or_city": null,
+	    "state_or_province": null,
+	    "post_or_zip": null,
+	    "telephone": null,
+	    "fax": null,
+	    "first_name": "%(piFirstName)s",
+	    "last_name": "%(piLastName)s",
+	    "email": "%(piEmail)s",
+	    "country": "%(piCountry)s"
+	}],
+	"imagesets": [
+		{
+			"name": "",
+			"directory": "",
+			"category": "('', '')",
+			"header_format": "('', '')",
+			"data_format": "('', '')",
+			"num_images_or_tilt_series": 0,
+			"frames_per_image": 0,
+			"frame_range_min": 0,
+			"frame_range_max": 0,
+			"voxel_type": "('', '')",
+			"pixel_width": null,
+			"pixel_height": null,
+			"details": "",
+			"image_width": "",
+			"image_height": ""
+		}
+	],
+	"citation": [
+		{
+			"authors": [
+			    {
+			      "name": "(%(entryAuthorStr)s)",
+				  "order_id": 0,
+			      "author_orcid": null
+			    }
+			],
+			"editors": [],
+			"published": false,
+			"j_or_nj_citation": false,
+			"title": "%(entryTitle)s",
+			"volume": null,
+			"country": null,
+			"first_page": null,
+			"last_page": null,
+			"year": null,
+			"language": null,
+			"doi": null,
+			"pubmedid": null,
+			"details": null,
+			"book_chapter_title": null,
+			"publisher": null,
+			"publication_location": null,
+			"journal": null,
+			"journal_abbreviation": null,
+			"issue": null
+		}
+	]
+}
