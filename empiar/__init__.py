@@ -34,7 +34,6 @@ This package contains the protocols and data for EMPIAR
 import os
 import pyworkflow.em
 
-from pyworkflow.utils import Environ
 from empiar.constants import *
 from bibtex import _bibtex
 
@@ -44,39 +43,21 @@ _logo = 'EMPIAR_logo.png'
 
 
 class Plugin(pyworkflow.em.Plugin):
-    _homeVar = EMPIAR_HOME
-    _pathVars = [EMPIAR_HOME]
-    _supportedVersions = V1_0_0
+    _pathVars = [ASCP_PATH]
 
     @classmethod
     def _defineVariables(cls):
-        cls._defineEmVar(EMPIAR_HOME, 'empiar-1.0.0')
-        cls._defineEmVar(ASCP_PATH,  os.path.expanduser('~/.aspera/connect/bin/ascp'))
-        cls._defineEmVar(ASPERA_PASS, '')
-        cls._defineEmVar(EMPIAR_TOKEN, '')
-
-    @classmethod
-    def getEnviron(cls):
-        """ Setup the environment variables needed to launch Empiar. """
-        environ = Environ(os.environ)
-        environ.update({
-            'PATH': Plugin.getHome(),
-            'ASCP_PATH': os.path.expanduser('~/.aspera/connect/bin/ascp'),
-        }, position=Environ.BEGIN)
-
-        return environ
-
-    @classmethod
-    def isVersionActive(cls):
-        return cls.getActiveVersion().startswith(V1_0_0)
+        cls._defineVar(ASCP_PATH,  os.path.expanduser('~/.aspera/connect/bin/ascp'))
+        cls._defineVar(ASPERA_PASS, '')
+        cls._defineVar(EMPIAR_TOKEN, '')
 
     @classmethod
     def defineBinaries(cls, env):
-
         empiar_cmd = [('./aspera-connect-3.7.4.147727-linux-64.sh',
-                       [cls.getVar(ASCP_PATH)])]
-        env.addPackage('ascp',
-                       url='https://download.asperasoft.com/download/sw/connect/3.7.4/aspera-connect-3.7.4.147727-linux-64.tar.gz',
+                      [cls.getVar(ASCP_PATH)])]
+        url = 'https://download.asperasoft.com/download/sw/connect/3.7.4/aspera-connect-3.7.4.147727-linux-64.tar.gz'
+        env.addPackage('ascp', version="3.7.4",
+                       url=url,
                        default=True,
                        buildDir='ascp',
                        createBuildDir=True,

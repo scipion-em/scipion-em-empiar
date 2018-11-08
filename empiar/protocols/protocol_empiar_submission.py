@@ -32,13 +32,22 @@ import subprocess
 
 import jsonschema
 from empiar_depositor import empiar_depositor
-from empiar.constants import ASPERA_PASS, EMPIAR_TOKEN, ASCP_PATH
+from empiar.constants import (ASPERA_PASS, EMPIAR_TOKEN,
+                              ASCP_PATH, DEPOSITION_SCHEMA,
+                              DEPOSITION_TEMPLATE)
 from tkMessageBox import showerror
 from pyworkflow.em.protocol import EMProtocol
 from pyworkflow.protocol import params
 from pyworkflow.em.convert import ImageHandler
 from pyworkflow.object import String
 import pyworkflow.utils as pwutils
+
+
+class EmpiarMappingError(Exception):
+    """To raise it when we can't map Scipion data to EMPIAR data,
+    e.g. we don't manage to assign an EMPIAR category to an image set."""
+    pass
+
 
 class EmpiarDepositor(EMProtocol):
     """
@@ -47,17 +56,17 @@ class EmpiarDepositor(EMProtocol):
     _label = 'Empiar deposition'
     _ih = ImageHandler()
     _imageSetCategories = {
-                              "SetOfMicgrographs": "T1",
+                              "SetOfMicrographs": "T1",
                               "SetOfMovies": 'T2',
-                              'T3' : 'micrographs - focal pairs - unprocessed',
-                              'T4' : 'micrographs - focal pairs - contrast inverted',
-                              'T5' : 'picked particles - single frame - unprocessed',
-                              'T6' : 'picked particles - multiframe - unprocessed',
-                              'T7' : 'picked particles - single frame - processed',
-                              'T8' : 'picked particles - multiframe - processed',
-                              'T9' : 'tilt series',
-                              'T10': 'class averages',
-                              'OT' : 'other, in this case please specify the category in the second element.'
+                              # 'T3' : 'micrographs - focal pairs - unprocessed',
+                              # 'T4' : 'micrographs - focal pairs - contrast inverted',
+                              "SetOfMovieParticles": 'T5',  # : 'picked particles - single frame - unprocessed',
+                              # 'T6' : 'picked particles - multiframe - unprocessed',
+                              "SetOfParticles" : 'T7',  # 'picked particles - single frame - processed',
+                              # "SetOfMovieParticles": 'T8',  # : 'picked particles - multiframe - processed',
+                              "TiltPairSet": 'T9',   #   : 'tilt series',
+                              "SetOfAverages": 'T10',  #  'class averages',
+                              # 'OT' : 'other, in this case please specify the category in the second element.'
                             }
     _imageSetFormats = {
                            'mrc'    : 'T1',
@@ -93,17 +102,15 @@ class EmpiarDepositor(EMProtocol):
                      'ZM', 'ZW']
 
     _voxelTypes = {
-        _ih.DT_UCHAR: 'T1',  # 'UNSIGNED BYTE'
-        _ih.DT_SCHAR: 'T2',  # 'SIGNED BYTE'
-        _ih.DT_USHORT: 'T3', # 'UNSIGNED 16 BIT INTEGER'
-        _ih.DT_SHORT: 'T4',  # 'SIGNED 16 BIT INTEGER'
-        _ih.DT_UINT: 'T5',   # 'UNSIGNED 32 BIT INTEGER'
-        _ih.DT_INT: 'T6',    # 'SIGNED 32 BIT INTEGER'
-        _ih.DT_FLOAT: 'T7'   # '32 BIT FLOAT'
+        _ih.DT_UCHAR: 'T1',   # 'UNSIGNED BYTE'
+        _ih.DT_SCHAR: 'T2',   # 'SIGNED BYTE'
+        _ih.DT_USHORT: 'T3',  # 'UNSIGNED 16 BIT INTEGER'
+        _ih.DT_SHORT: 'T4',   # 'SIGNED 16 BIT INTEGER'
+        _ih.DT_UINT: 'T5',    # 'UNSIGNED 32 BIT INTEGER'
+        _ih.DT_INT: 'T6',     # 'SIGNED 32 BIT INTEGER'
+        _ih.DT_FLOAT: 'T7'    # '32 BIT FLOAT'
     }
 
-    DEPOSITION_SCHEMA = 'empiar_deposition.schema.json'
-    DEPOSITION_TEMPLATE = 'empiar_deposition_template.json'
     OUTPUT_DEPO_JSON = 'deposition.json'
     OUTPUT_WORKFLOW = 'workflow.json'
 
@@ -142,7 +149,6 @@ class EmpiarDepositor(EMProtocol):
         IMGSET_HEIGHT: 0
     }
 
-
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
         self.workflowDicts = []
@@ -150,7 +156,7 @@ class EmpiarDepositor(EMProtocol):
         self.workflowPath = String()
         self.depositionJsonPath = String()
 
-    #--------------- DEFINE param functions ---------------
+    # --------------- DEFINE param functions ---------------
 
     def _defineParams(self, form):
         form.addSection(label='Entry')
@@ -216,7 +222,7 @@ class EmpiarDepositor(EMProtocol):
         form.addSection(label='Image sets')
         self.inputSetsParam = form.addParam('inputSets', params.MultiPointerParam,
                                             label="Input set", important=True, condition="not resume",
-                                            pointerClass='EMSet,Volume', minNumObjects=1,
+                                            pointerClass=','.join(self._imageSetCategories.keys()), minNumObjects=1,
                                             help='Select one set (of micrographs, particles,'
                                                  ' volumes, etc.) to be deposited to EMPIAR.')
         # form.addParam('micSet', params.PointerParam, pointerClass='SetOfMicrographs,SetOfMovies,SetOfParticles',
@@ -276,7 +282,7 @@ class EmpiarDepositor(EMProtocol):
             self.exportWorkflow()
 
             # create deposition json
-            jsonTemplatePath = self.jsonTemplate.get('').strip() or self.getJsonTemplatePath()
+            jsonTemplatePath = self.jsonTemplate.get('').strip() or DEPOSITION_TEMPLATE
 
             entryAuthorStr = self.entryAuthor.get().split(',')
             self.entryAuthorStr = "'%s', '%s'" % (entryAuthorStr[0].strip(), entryAuthorStr[1].strip())
@@ -348,14 +354,11 @@ class EmpiarDepositor(EMProtocol):
     def getTopLevelPath(self, *paths):
         return os.path.join(self._getExtraPath(self.entryTopLevel.get()), *paths)
 
-    def getJsonTemplatePath(self):
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)), self.DEPOSITION_TEMPLATE)
-
     def exportWorkflow(self):
         project = self.getProject()
         workflowProts = [p for p in project.getRuns()]  # workflow prots are all prots if no json provided
         workflowJsonPath = os.path.join(project.path, self.getTopLevelPath(self.OUTPUT_WORKFLOW))
-        protDicts = project.getProtocolDicts(workflowProts)
+        protDicts = project.getProtocolsDict(workflowProts)
 
         for inputSetPointer in self.inputSets:
             inputSet = inputSetPointer.get()
@@ -373,7 +376,7 @@ class EmpiarDepositor(EMProtocol):
         return workflowJsonPath
 
     def validateDepoJson(self, depoDict):
-        with open(os.path.join(os.path.dirname(__file__), self.DEPOSITION_SCHEMA)) as f:
+        with open(DEPOSITION_SCHEMA) as f:
             schema = json.load(f)
         valid = jsonschema.validate(depoDict, schema)  # raises exception if not valid
         return True
@@ -382,28 +385,27 @@ class EmpiarDepositor(EMProtocol):
     # --------------- imageSet utils -------------------------
 
     def getEmpiarCategory(self, imageSet):
-        """TODO"""
         className = imageSet.getClassName()
-        category = self._imageSetCategories.get(className, 'OT')
-        if category == 'OT':
-            return 'OT', 'TODO'
+        category = self._imageSetCategories.get(className, None)
+        if category is None:
+            raise EmpiarMappingError('Could not assign an EMPIAR category to image set %s' % imageSet.getObjName())
         else:
             return category, ''
 
     def getEmpiarFormat(self, imagePath):
         ext = pwutils.getExt(imagePath).lower().strip('.')
-        imgFormat = self._imageSetFormats.get(ext, 'OT')
-        if imgFormat == 'OT':
-            return 'OT', ext
+        imgFormat = self._imageSetFormats.get(ext, None)
+        if imgFormat is None:
+            raise EmpiarMappingError('Image format not recognized: ' % ext)
         else:
             return imgFormat, ''
 
     def getVoxelType(self, imageObj):
         """TODO"""
         dataType = self._ih.getDataType(imageObj)
-        empiarType = self._voxelTypes.get(dataType, 'OT')
-        if empiarType == 'OT':
-            return 'OT', 'TODO'
+        empiarType = self._voxelTypes.get(dataType, None)
+        if empiarType == None:
+            raise EmpiarMappingError('Could not map voxel type for image %s' % imageObj.getFilename())
         else:
             return empiarType, ''
 
