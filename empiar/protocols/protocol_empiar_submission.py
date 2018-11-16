@@ -401,7 +401,6 @@ class EmpiarDepositor(EMProtocol):
             return imgFormat, ''
 
     def getVoxelType(self, imageObj):
-        """TODO"""
         dataType = self._ih.getDataType(imageObj)
         empiarType = self._voxelTypes.get(dataType, None)
         if empiarType == None:
