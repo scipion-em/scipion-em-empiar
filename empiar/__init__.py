@@ -35,10 +35,9 @@ import os
 import pyworkflow.em
 
 from empiar.constants import *
-from bibtex import _bibtex
 
 
-_references = ['Voss2009']
+_references = ['Iudin2016']
 _logo = 'EMPIAR_logo.png'
 
 

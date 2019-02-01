@@ -26,7 +26,7 @@
 # **************************************************************************
 
 
-_bibtexStr = """
+"""
 @article {Iudin2016,
 Title = {EMPIAR: a public archive for raw electron microscopy image data},
 Author = {Iudin, Andrii and Korir, Paul K and Salavert-Torres, José and Kleywegt, Gerard J and Patwardhan, Ardan},
@@ -41,7 +41,3 @@ Pages = {387—388},
 URL = {https://doi.org/10.1038/nmeth.3806}
 }"""
 
-
-from pyworkflow.utils import parseBibTex
-
-_bibtex = parseBibTex(_bibtexStr)
