@@ -19,13 +19,13 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='scipion-em-empiar',
-    version='1.0.2',
+    version='1.0.3',
     description='A Scipion plugin to make depositions to EMPIAR',
     long_description=long_description,
     url='https://github.com/scipion-em/scipion-em-empiar',
     author='I2PC',
     author_email='scipion@cnb.csic.es',
-    keywords='scipion empiar scipion-1.2',
+    keywords='scipion empiar scipion-2.0',
     packages=find_packages(),
     install_requires=['empiar-depositor', 'jsonschema'],
     package_data={
