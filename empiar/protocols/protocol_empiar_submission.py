@@ -32,13 +32,12 @@ import subprocess
 
 import jsonschema
 from empiar_depositor import empiar_depositor
-from empiar.constants import (ASPERA_PASS, EMPIAR_TOKEN,
+from ..constants import (ASPERA_PASS, EMPIAR_TOKEN,
                               ASCP_PATH, DEPOSITION_SCHEMA,
                               DEPOSITION_TEMPLATE)
-from tkMessageBox import showerror
-from pyworkflow.em.protocol import EMProtocol
+from pwem.protocols import EMProtocol
 from pyworkflow.protocol import params
-from pyworkflow.em.convert import ImageHandler
+from pwem.convert import ImageHandler
 from pyworkflow.object import String
 import pyworkflow.utils as pwutils
 
