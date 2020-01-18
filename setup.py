@@ -31,5 +31,8 @@ setup(
     package_data={
        'empiar': ['EMPIAR_logo.png', 'empiar_deposition.schema.json',
                   'empiar_deposition_template.json', 'protocols.conf'],
+    },
+    entry_points={
+        'pyworkflow.plugin': 'empiar = empiar'
     }
 )

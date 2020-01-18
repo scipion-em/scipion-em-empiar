@@ -62,6 +62,3 @@ class Plugin(pwem.Plugin):
                        createBuildDir=True,
                        target='ascp/aspera-connect-3.7.4.147727-linux-64.sh',
                        commands=empiar_cmd)
-
-
-pwem.Domain.registerPlugin(__name__)
