@@ -25,7 +25,7 @@ setup(
     url='https://github.com/scipion-em/scipion-em-empiar',
     author='I2PC',
     author_email='scipion@cnb.csic.es',
-    keywords='scipion empiar scipion-2.0',
+    keywords='scipion empiar scipion-3.0',
     packages=find_packages(),
     install_requires=['empiar-depositor', 'jsonschema'],
     package_data={
