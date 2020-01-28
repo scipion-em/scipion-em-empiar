@@ -35,7 +35,7 @@ from ..constants import (ASPERA_PASS, EMPIAR_TOKEN,
                          DEPOSITION_TEMPLATE)
 from pwem.protocols import EMProtocol
 from pyworkflow.protocol import params
-from pwem.convert import ImageHandler
+from pwem import emlib
 from pyworkflow.object import String
 import pyworkflow.utils as pwutils
 
@@ -51,7 +51,7 @@ class EmpiarDepositor(EMProtocol):
     Deposit image sets to empiar
     """
     _label = 'Empiar deposition'
-    _ih = ImageHandler()
+    _ih = emlib.image.ImageHandler()
     _imageSetCategories = {
                               "SetOfMicrographs": "T1",
                               "SetOfMovies": 'T2',
@@ -99,13 +99,13 @@ class EmpiarDepositor(EMProtocol):
                      'ZM', 'ZW']
 
     _voxelTypes = {
-        _ih.DT_UCHAR: 'T1',   # 'UNSIGNED BYTE'
-        _ih.DT_SCHAR: 'T2',   # 'SIGNED BYTE'
-        _ih.DT_USHORT: 'T3',  # 'UNSIGNED 16 BIT INTEGER'
-        _ih.DT_SHORT: 'T4',   # 'SIGNED 16 BIT INTEGER'
-        _ih.DT_UINT: 'T5',    # 'UNSIGNED 32 BIT INTEGER'
-        _ih.DT_INT: 'T6',     # 'SIGNED 32 BIT INTEGER'
-        _ih.DT_FLOAT: 'T7'    # '32 BIT FLOAT'
+        emlib.DT_UCHAR: 'T1',   # 'UNSIGNED BYTE'
+        emlib.DT_SCHAR: 'T2',   # 'SIGNED BYTE'
+        emlib.DT_USHORT: 'T3',  # 'UNSIGNED 16 BIT INTEGER'
+        emlib.DT_SHORT: 'T4',   # 'SIGNED 16 BIT INTEGER'
+        emlib.DT_UINT: 'T5',    # 'UNSIGNED 32 BIT INTEGER'
+        emlib.DT_INT: 'T6',     # 'SIGNED 32 BIT INTEGER'
+        emlib.DT_FLOAT: 'T7'    # '32 BIT FLOAT'
     }
 
     OUTPUT_DEPO_JSON = 'deposition.json'
