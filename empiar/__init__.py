@@ -25,12 +25,6 @@
 # *
 # **************************************************************************
 
-"""
-This package contains the protocols and data for EMPIAR
-"""
-#from plugin import _plugin
-#from empiar.protocols.protocol_empiar_submission import EmpiarDepositor
-
 import os
 import pwem
 

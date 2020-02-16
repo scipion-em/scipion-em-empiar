@@ -30,14 +30,16 @@ import copy
 
 import jsonschema
 from empiar_depositor import empiar_depositor
+
+from pwem import emlib
+from pwem.protocols import EMProtocol
+from pyworkflow.protocol import params
+from pyworkflow.object import String
+import pyworkflow.utils as pwutils
+
 from ..constants import (ASPERA_PASS, EMPIAR_TOKEN,
                          ASCP_PATH, DEPOSITION_SCHEMA,
                          DEPOSITION_TEMPLATE)
-from pwem.protocols import EMProtocol
-from pyworkflow.protocol import params
-from pwem import emlib
-from pyworkflow.object import String
-import pyworkflow.utils as pwutils
 
 
 class EmpiarMappingError(Exception):
@@ -389,7 +391,7 @@ class EmpiarDepositor(EMProtocol):
         ext = pwutils.getExt(imagePath).lower().strip('.')
         imgFormat = self._imageSetFormats.get(ext, None)
         if imgFormat is None:
-            raise EmpiarMappingError('Image format not recognized: ' % ext)
+            raise EmpiarMappingError('Image format not recognized: %s' % ext)
         else:
             return imgFormat, ''
 
