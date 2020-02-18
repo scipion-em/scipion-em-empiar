@@ -79,7 +79,7 @@ class EmpiarDepositor(EMProtocol):
     }
 
     _experimentTypes = ['1', '2', '3', '4', '5', '6']
-    _releaseDateTypes = ["IM", "EP", "HP", "H1"]
+    _releaseDateTypes = ["RE", "EP", "HP", "HO"]
     _countryCodes = ['AD', 'AE', 'AF', 'AG', 'AI', 'AL', 'AM', 'AO', 'AQ', 'AR', 'AS', 'AT', 'AU',
                      'AW', 'AZ', 'BA', 'BB', 'BD', 'BE', 'BF', 'BG', 'BH', 'BI', 'BJ', 'BL', 'BM',
                      'BN', 'BO', 'BR', 'BS', 'BT', 'BV', 'BW', 'BY', 'BZ', 'CA', 'CC', 'CD', 'CF',
@@ -199,11 +199,10 @@ class EmpiarDepositor(EMProtocol):
                       choices=self._experimentTypes, default=2, important=True,
                       help="EMPIAR experiment type:\n"
                            "1 - image data collected using soft x-ray tomography\n"
-                           "2 - simulated data, for instance, created using InSilicoTEM\n"
-                           "   (note: simulated data accepted in special circumstances such\n"
-                           "    as test/training sets for validation challenges: you need to\n"
-                           "    ask for and be granted permission PRIOR to deposition otherwise\n"
-                           "    the dataset will be rejected by EMPIAR)\n"
+                           "2 - simulated data, for instance, created using InSilicoTEM \n"
+                           "(note: we only accept simulated data in special circumstances such as test/training sets \n"
+                           "for validation challenges: you need to ask for and be granted permission PRIOR to deposition \n"
+                           "otherwise the dataset will be rejected)\n"
                            "3 - raw image data relating to structures deposited to the Electron Microscopy Data Bank\n"
                            "4 - image data collected using serial block-face scanning electron microscopy \n"
                            "    (like the Gatan 3View system)\n"
@@ -213,10 +212,10 @@ class EmpiarDepositor(EMProtocol):
                       choices=self._releaseDateTypes, default=2, important=True,
                       help="EMPIAR release date:\n"
                            "Options for releasing entry to the public: \n"
-                           "IM - directly after the submission has been processed\n"
+                           "RE - directly after the submission has been processed\n"
                            "EP - after the related EMDB entry has been released\n"
                            "HP - after the related primary citation has been published\n"
-                           "H1 - delay release of entry by one year from the date of deposition"
+                           "HO - delay release of entry by one year from the date of deposition"
                       )
 
         form.addSection(label='Image sets')
@@ -243,7 +242,14 @@ class EmpiarDepositor(EMProtocol):
         form.addParam('piCountry', params.StringParam, label="Country", condition="not resume",
                       help="Two letter country code eg. ES. This should not be empty if not using a custom template."
                            "\nValid country codes are %s" % " ".join(self._countryCodes))
-
+        form.addParam('piTown', params.StringParam, label="Town or city",
+                      condition="not resume",
+                      help='PI town or city e.g. Pasadena - '
+                           'this should not be empty if not using a custom template.')
+        form.addParam('piPost', params.StringParam, label="Post or zip",
+                      condition="not resume",
+                      help='PI post or zip e.g. 91125 - '
+                           'this should not be empty if not using a custom template.')
 
         form.addSection(label="Corresponding Author")
         form.addParam('caFirstName', params.StringParam, label='First name', condition="not resume",
@@ -261,6 +267,14 @@ class EmpiarDepositor(EMProtocol):
         form.addParam('caCountry', params.StringParam, label="Country", condition="not resume",
                       help="Two letter country code e.g. ES. This should not be empty if not using a custom template."
                            "\nValid country codes are %s" % " ".join(self._countryCodes))
+        form.addParam('caTown', params.StringParam, label="Town or city",
+                      condition="not resume",
+                      help='Town or city e.g. Pasadena - '
+                           'this should not be empty if not using a custom template.')
+        form.addParam('caPost', params.StringParam, label="Post or zip",
+                      condition="not resume",
+                      help='Post or zip e.g. 91125 - '
+                           'this should not be empty if not using a custom template.')
 
 
 
@@ -307,7 +321,7 @@ class EmpiarDepositor(EMProtocol):
         self.validateDepoJson(depoDict)
 
     def submitDepositionStep(self):
-        depositorCall = '%(resume)s %(token)s %(depoJson)s %(ascp)s %(devel)s %(data)s'
+        depositorCall = '%(resume)s %(token)s %(depoJson)s %(ascp)s %(devel)s %(data)s -o'
         args = {'resume': '-r %s %s' % (self.entryID, self.uniqueDir) if self.resume else "",
                 'token': os.environ[EMPIAR_TOKEN],
                 'depoJson': os.path.abspath(self.depositionJsonPath.get()),
@@ -318,7 +332,10 @@ class EmpiarDepositor(EMProtocol):
 
         depositorCall = depositorCall % args
         print("Empiar depositor call: %s" % depositorCall)
-        empiar_depositor.main(depositorCall.split())
+        dep_result = empiar_depositor.main(depositorCall.split())
+        self.entryID.set(dep_result[0])
+        self.uniqueDir.set(dep_result[1])
+        self._store()
 
     # --------------- INFO functions -------------------------
 

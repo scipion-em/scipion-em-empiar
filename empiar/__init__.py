@@ -33,6 +33,7 @@ This package contains the protocols and data for EMPIAR
 
 import os
 import pyworkflow.em
+from pyworkflow.em.convert import ImageHandler
 
 from empiar.constants import *
 

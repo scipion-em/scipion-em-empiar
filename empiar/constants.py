@@ -33,4 +33,4 @@ ASPERA_PASS = "ASPERA_SCP_PASS"
 EMPIAR_TOKEN = "EMPIAR_TOKEN"
 
 DEPOSITION_TEMPLATE = resource_filename('empiar', '/'.join(('templates', 'empiar_deposition_template.json')))
-DEPOSITION_SCHEMA = resource_filename('empiar', '/'.join(('templates', 'empiar_deposition.schema.json')))
+DEPOSITION_SCHEMA = resource_filename('empiar_depositor', '/empiar_deposition.schema.json')
