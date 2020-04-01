@@ -2,6 +2,10 @@
   "$id": "https://empiar.org/empiar_deposition.schema.json#",
   "type": "object",
   "definitions": {},
+  "self": {
+    "format": "jsonschema",
+    "version": "1-0-0"
+  },
   "$schema": "http://json-schema.org/schema#",
   "properties": {
     "title": {
@@ -18,11 +22,11 @@
       "$id": "/properties/release_date",
       "type": "string",
       "title": "The Release_date Schema ",
-      "enum": ["IM", "EP", "HP", "H1"],
-      "default": "IM",
-      "description": "Options for releasing entry to the public: IM - directly after the submission has been processed, EP - after the related EMDB entry has been released, HP - after the related primary citation has been published and H1 - delay release of entry by one year from the date of deposition.",
+      "enum": ["RE", "EP", "HP", "HO"],
+      "default": "RE",
+      "description": "Options for releasing entry to the public: RE - directly after the submission has been processed, EP - after the related EMDB entry has been released, HP - after the related primary citation has been published and HO - delay release of entry by one year from the date of deposition.",
       "examples": [
-        "IM"
+        "RE"
       ]
     },
     "experiment_type": {
@@ -38,7 +42,7 @@
     },
     "cross_references": {
       "$id": "/properties/cross_references",
-      "type": ["null", "array"],
+      "type": "array",
       "items": {
         "$id": "/properties/cross_references/items",
         "type": "object",
@@ -54,12 +58,34 @@
           }
         }
       },
-      "default": null,
+      "default": [],
       "description": "Array of references to EMDB"
+    },
+    "biostudies_references": {
+      "$id": "/properties/biostudies_references",
+      "type": "array",
+      "items": {
+        "$id": "/properties/biostudies_references/items",
+        "type": "object",
+        "properties": {
+          "name": {
+            "$id": "/properties/biostudies_references/items/properties/name",
+            "type": "string",
+            "pattern": "^S-.*$",
+            "title": "The Name Schema ",
+            "examples": [
+              "S-SCDT-EMBOR-2018-46196V1"
+            ]
+          }
+        }
+      },
+      "default": [],
+      "description": "Array of references to BioStudies"
     },
     "authors": {
       "$id": "/properties/authors",
       "type": "array",
+      "minItems": 1,
       "items": {
         "$id": "/properties/authors/items",
         "type": "object",
@@ -109,7 +135,7 @@
       "properties": {
         "author_orcid": {
           "$id": "/properties/corresponding_author/items/properties/author_orcid",
-          "type": ["null", "string"],
+          "type": "string",
           "pattern": "^([0-9]{4}-){3}[0-9]{3}([0-9]|X)$",
           "title": "The Author_orcid Schema ",
           "description": "ORCID identifier of the author. Apart from complying with regex it has to satisfy the checksum: https://support.orcid.org/knowledgebase/articles/116780-structure-of-the-orcid-identifier",
@@ -492,13 +518,14 @@
     "principal_investigator": {
       "$id": "/properties/principal_investigator",
       "type": "array",
+      "minItems": 1,
       "items": {
         "$id": "/properties/corresponding_author",
         "type": "object",
         "properties": {
           "author_orcid": {
             "$id": "/properties/principal_investigator/items/properties/author_orcid",
-            "type": ["null", "string"],
+            "type": "string",
             "pattern": "^([0-9]{4}-){3}[0-9]{3}([0-9]|X)$",
             "title": "The Author_orcid Schema ",
             "description": "ORCID identifier of the author. Apart from complying with regex it has to satisfy the checksum: https://support.orcid.org/knowledgebase/articles/116780-structure-of-the-orcid-identifier",
@@ -883,6 +910,7 @@
     "imagesets": {
       "$id": "/properties/imagesets",
       "type": "array",
+      "minItems": 1,
       "items": {
         "$id": "/properties/imagesets/items",
         "type": "object",
@@ -900,12 +928,12 @@
           "directory": {
             "$id": "/properties/imagesets/items/properties/directory",
             "type": "string",
-            "pattern": "^/data/[^\\0]+$",
+            "pattern": "^[^\\0]+$",
             "title": "The Directory Schema ",
             "maxLength": 200,
             "description": "Path to the directory that would contain all image set files. The top-level directory 'data' is always reserved for the sake of conformity. The uploaded image sets will be placed in it as they are.",
             "examples": [
-              "/data/micrographs"
+              "data/micrographs"
             ]
           },
           "category": {
@@ -913,7 +941,7 @@
             "type": "string",
             "pattern": "^(\\('T([2-9]|10?)', ''\\))|\\('OT', '[^\\0]+'\\)$",
             "title": "The Category Schema ",
-            "description": "T1' corresponds to 'micrographs - single frame', 'T2' - 'micrographs - multiframe', 'T3' - 'micrographs - focal pairs - unprocessed', 'T4' - 'micrographs - focal pairs - contrast inverted', 'T5' - 'picked particles - single frame - unprocessed', 'T6' - 'picked particles - multiframe - unprocessed', 'T7' - 'picked particles - single frame - processed', 'T8' - 'picked particles - multiframe - processed', 'T9' - 'tilt series', 'T10' - 'class averages', 'OT' - other, in this case please specify the category in the second element.",
+            "description": "'T1' corresponds to 'micrographs - single frame', 'T2' - 'micrographs - multiframe', 'T3' - 'micrographs - focal pairs - unprocessed', 'T4' - 'micrographs - focal pairs - contrast inverted', 'T5' - 'picked particles - single frame - unprocessed', 'T6' - 'picked particles - multiframe - unprocessed', 'T7' - 'picked particles - single frame - processed', 'T8' - 'picked particles - multiframe - processed', 'T9' - 'tilt series', 'T10' - 'class averages', 'OT' - other, in this case please specify the category in the second element.",
             "examples": [
               "('T9', '')",
               "('OT', 'new category name')"
@@ -1013,6 +1041,39 @@
               "Three-dimensional in situ structure of a T4bP machine in its piliated and non-piliated states constructed from its tilt series."
             ]
           },
+          "micrographs_file_pattern": {
+            "$id": "/properties/imagesets/items/properties/details",
+            "type": ["null", "string"],
+            "title": "The Micrographs_file_pattern Schema ",
+            "default": null,
+            "maxLength": 200,
+            "description": "The pattern for the micrographs that correspond to the picked particles.",
+            "examples": [
+              "data/micrographs/mc-*-05-2018-*.mrc"
+            ]
+          },
+          "picked_particles_file_pattern": {
+            "$id": "/properties/imagesets/items/properties/details",
+            "type": ["null", "string"],
+            "title": "The Picked_particles_file_pattern Schema ",
+            "default": null,
+            "maxLength": 200,
+            "description": "The pattern for the picked particle description files or the path to such a file if there is just one.",
+            "examples": [
+              "data/picked_particles.star"
+            ]
+          },
+          "picked_particles_directory": {
+            "$id": "/properties/imagesets/items/properties/details",
+            "type": ["null", "string"],
+            "title": "The Picked_particles_directory Schema ",
+            "default": null,
+            "maxLength": 200,
+            "description": "The directory that contains the related picked particles.",
+            "examples": [
+              "data/picked_particles1"
+            ]
+          },
           "image_width": {
             "$id": "/properties/imagesets/items/properties/image_width",
             "type": ["null", "integer"],
@@ -1038,6 +1099,7 @@
     "citation": {
       "$id": "/properties/citation",
       "type": "array",
+      "minItems": 1,
       "items": {
         "$id": "/properties/citation/items",
         "type": "object",
@@ -1045,6 +1107,7 @@
           "authors": {
             "$id": "/properties/citation/items/properties/authors",
             "type": "array",
+            "minItems": 1,
             "items": {
               "$id": "/properties/citation/items/properties/authors/items",
               "type": "object",
@@ -1086,7 +1149,7 @@
           },
           "editors": {
             "$id": "/properties/citation/items/properties/editors",
-            "type": ["null", "array"],
+            "type": "array",
             "items": {
               "$id": "/properties/citation/items/properties/editors/items",
               "type": "object",
@@ -1169,7 +1232,7 @@
           },
           "country": {
             "$id": "/properties/citation/items/properties/country",
-            "type": ["null", "string"],
+            "type": "string",
             "title": "The Country Schema ",
             "enum": [
               null,
