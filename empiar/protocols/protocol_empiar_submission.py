@@ -41,6 +41,7 @@ from pyworkflow.protocol import params
 from pyworkflow.em.convert import ImageHandler
 from pyworkflow.object import String
 import pyworkflow.utils as pwutils
+from pyworkflow.install.plugin_funcs import PluginInfo
 
 
 class EmpiarMappingError(Exception):
@@ -147,6 +148,13 @@ class EmpiarDepositor(EMProtocol):
         IMGSET_DETAILS: "",
         IMGSET_WIDTH: 0,
         IMGSET_HEIGHT: 0
+    }
+
+    SCIPION_WORKFLOW_KEY = 'scipion'
+    SCIPION_WORKFLOW = 'scipion_workflow'
+
+    _workflowTemplate = {
+        SCIPION_WORKFLOW: ""
     }
 
     def __init__(self, **kwargs):
@@ -307,6 +315,8 @@ class EmpiarDepositor(EMProtocol):
             depoDict = json.loads(jsonStr)
             imageSets = self.processImageSets()
             depoDict[self.IMGSET_KEY] = imageSets
+
+            depoDict[self.SCIPION_WORKFLOW_KEY] = self.getScipionWorkflow()
             depoJson = self.getTopLevelPath(self.OUTPUT_DEPO_JSON)
             with open(depoJson, 'w') as f:
                 # f.write(jsonStr.encode('utf-8'))
@@ -372,11 +382,39 @@ class EmpiarDepositor(EMProtocol):
     def getTopLevelPath(self, *paths):
         return os.path.join(self._getExtraPath(self.entryTopLevel.get()), *paths)
 
+    #This is not clear is going to go like this since it is a bit complicated (need to parse output to get plugin version)
     def exportWorkflow(self):
         project = self.getProject()
         workflowProts = [p for p in project.getRuns()]  # workflow prots are all prots if no json provided
         workflowJsonPath = os.path.join(project.path, self.getTopLevelPath(self.OUTPUT_WORKFLOW))
         protDicts = project.getProtocolsDict(workflowProts)
+
+        # Add extra info to protocosDict
+        for prot in workflowProts:
+            # Get summary
+            protDicts[prot.getObjId()]['summary'] = prot.summary()
+
+            # Get plugin and binary version
+            # This is not possible now in Scipion in a clean way so a workaround is used from the time being
+            # We know only the module name of a certain protocol, from that we can get the pip package name (not very clean way) and get the installed binaries
+            # (which is not exactly bin and plugin versions used at execution time cause this can have changed).
+            # To get exact versions they will have to be saved on protocols object at execution time.
+
+            protDicts[prot.getObjId()]['plugin'] = prot.getClassPackageName()
+            plugin_name = prot.getClassPackageName()
+            if plugin_name == 'xmipp3':
+                plugin_pip_package = 'scipion-em-xmipp';
+            elif plugin_name == 'scipion':
+                plugin_pip_package = '';
+            else:
+                plugin_pip_package = 'scipion-em-%s' % plugin_name
+
+            pluginInfo = PluginInfo(pipName=plugin_pip_package, remote=False)
+            print (pluginInfo.printBinInfoStr())
+
+
+            # Get output representacion
+            # Get logs
 
         for inputSetPointer in self.inputSets:
             inputSet = inputSetPointer.get()
@@ -453,3 +491,8 @@ class EmpiarDepositor(EMProtocol):
             imgSetDict = self.getImageSetDict(imgSet)
             imgSetDicts.append(imgSetDict)
         return imgSetDicts
+
+    def getScipionWorkflow(self):
+        workflowDict = copy.deepcopy(self._workflowTemplate)
+        workflowDict[self.SCIPION_WORKFLOW] = "/data/%s" % os.path.basename(self.workflowPath.get())
+        return workflowDict

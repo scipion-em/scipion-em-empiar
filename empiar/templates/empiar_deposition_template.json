@@ -64,6 +64,11 @@
 			"image_height": ""
 		}
 	],
+	"scipion": [
+		{
+			"scipion_workflow": ""
+		}
+	],
 	"citation": [
 		{
 			"authors": [
