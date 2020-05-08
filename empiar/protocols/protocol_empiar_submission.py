@@ -29,6 +29,7 @@ import glob
 import json
 import copy
 import subprocess
+import time
 
 import jsonschema
 from empiar_depositor import empiar_depositor
@@ -39,7 +40,7 @@ from tkMessageBox import showerror
 from pyworkflow.em.protocol import EMProtocol
 from pyworkflow.protocol import params
 from pyworkflow.em.convert import ImageHandler
-from pyworkflow.object import String
+from pyworkflow.object import String, Set
 import pyworkflow.utils as pwutils
 from pyworkflow.install.plugin_funcs import PluginInfo
 
@@ -148,6 +149,12 @@ class EmpiarDepositor(EMProtocol):
         IMGSET_DETAILS: "",
         IMGSET_WIDTH: 0,
         IMGSET_HEIGHT: 0
+    }
+
+    OUTPUT_NAME = 'name'
+
+    _outputTemplate = {
+        OUTPUT_NAME: ""
     }
 
     SCIPION_WORKFLOW_KEY = 'scipion'
@@ -382,8 +389,8 @@ class EmpiarDepositor(EMProtocol):
     def getTopLevelPath(self, *paths):
         return os.path.join(self._getExtraPath(self.entryTopLevel.get()), *paths)
 
-    #This is not clear is going to go like this since it is a bit complicated (need to parse output to get plugin version)
     def exportWorkflow(self):
+        time.sleep(30)
         project = self.getProject()
         workflowProts = [p for p in project.getRuns()]  # workflow prots are all prots if no json provided
         workflowJsonPath = os.path.join(project.path, self.getTopLevelPath(self.OUTPUT_WORKFLOW))
@@ -391,8 +398,18 @@ class EmpiarDepositor(EMProtocol):
 
         # Add extra info to protocosDict
         for prot in workflowProts:
-            # Get summary
-            protDicts[prot.getObjId()]['summary'] = prot.summary()
+
+            # Get summary and add input and output information
+            summary = prot.summary()
+            for a, input in prot.iterInputAttributes():
+                summary.append("Input: %s \n" % str(input))
+
+            for a, output in prot.iterOutputAttributes():
+                summary.append("Output: %s \n" % str(output))
+                # Find out how to add a complex object in the json to store output info
+                # protDicts[prot.getObjId()]['output'] = self.getOutputDict(output)
+
+            protDicts[prot.getObjId()]['summary'] = summary
 
             # Get plugin and binary version
             # This is not possible now in Scipion in a clean way so a workaround is used from the time being
@@ -400,20 +417,18 @@ class EmpiarDepositor(EMProtocol):
             # (which is not exactly bin and plugin versions used at execution time cause this can have changed).
             # To get exact versions they will have to be saved on protocols object at execution time.
 
-            protDicts[prot.getObjId()]['plugin'] = prot.getClassPackageName()
-            plugin_name = prot.getClassPackageName()
-            if plugin_name == 'xmipp3':
-                plugin_pip_package = 'scipion-em-xmipp';
-            elif plugin_name == 'scipion':
-                plugin_pip_package = '';
-            else:
-                plugin_pip_package = 'scipion-em-%s' % plugin_name
+            #protDicts[prot.getObjId()]['plugin'] = prot.getClassPackageName()
+            #plugin_name = prot.getClassPackageName()
+            #if plugin_name == 'xmipp3':
+            #    plugin_pip_package = 'scipion-em-xmipp';
+            #elif plugin_name == 'scipion':
+            #    plugin_pip_package = '';
+            #else:
+            #    plugin_pip_package = 'scipion-em-%s' % plugin_name
 
-            pluginInfo = PluginInfo(pipName=plugin_pip_package, remote=False)
-            print (pluginInfo.printBinInfoStr())
+            #pluginInfo = PluginInfo(pipName=plugin_pip_package, remote=False)
+            #print (pluginInfo.printBinInfoStr())
 
-
-            # Get output representacion
             # Get logs
 
         for inputSetPointer in self.inputSets:
@@ -496,3 +511,14 @@ class EmpiarDepositor(EMProtocol):
         workflowDict = copy.deepcopy(self._workflowTemplate)
         workflowDict[self.SCIPION_WORKFLOW] = "/data/%s" % os.path.basename(self.workflowPath.get())
         return workflowDict
+
+    def getOutputDict(self, output):
+        #outputDict = copy.deepcopy(self._outputTemplate)
+        outputDict = {}
+        outputDict[self.OUTPUT_NAME] = output.getObjName()
+        if isinstance(output, Set):
+            for item in output.iterItems():
+                attributes = item.getAttributes()
+                for key, value in attributes:
+                    outputDict[key] = value
+        return outputDict
