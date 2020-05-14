@@ -151,7 +151,8 @@ class EmpiarDepositor(EMProtocol):
         IMGSET_HEIGHT: 0
     }
 
-    OUTPUT_NAME = 'name'
+    OUTPUT_NAME = 'outputName'
+    OUTPUT_ITEMS = 'outputItems'
 
     _outputTemplate = {
         OUTPUT_NAME: ""
@@ -390,7 +391,7 @@ class EmpiarDepositor(EMProtocol):
         return os.path.join(self._getExtraPath(self.entryTopLevel.get()), *paths)
 
     def exportWorkflow(self):
-        time.sleep(30)
+        #time.sleep(30)
         project = self.getProject()
         workflowProts = [p for p in project.getRuns()]  # workflow prots are all prots if no json provided
         workflowJsonPath = os.path.join(project.path, self.getTopLevelPath(self.OUTPUT_WORKFLOW))
@@ -402,12 +403,12 @@ class EmpiarDepositor(EMProtocol):
             # Get summary and add input and output information
             summary = prot.summary()
             for a, input in prot.iterInputAttributes():
-                summary.append("Input: %s \n" % str(input))
+                summary.append("Input: %s \n" % str(input.get()))
 
+            protDicts[prot.getObjId()]['output'] = []
             for a, output in prot.iterOutputAttributes():
                 summary.append("Output: %s \n" % str(output))
-                # Find out how to add a complex object in the json to store output info
-                # protDicts[prot.getObjId()]['output'] = self.getOutputDict(output)
+                protDicts[prot.getObjId()]['output'].append(self.getOutputDict(output))
 
             protDicts[prot.getObjId()]['summary'] = summary
 
@@ -517,8 +518,13 @@ class EmpiarDepositor(EMProtocol):
         outputDict = {}
         outputDict[self.OUTPUT_NAME] = output.getObjName()
         if isinstance(output, Set):
+            items = {}
             for item in output.iterItems():
                 attributes = item.getAttributes()
+                itemDict = {}
                 for key, value in attributes:
-                    outputDict[key] = value
+                    itemDict[key] = str(value)
+                items[item.getObjId()] = itemDict
+                if item.getObjId() == 3: break;
+            outputDict[self.OUTPUT_ITEMS] = items
         return outputDict
