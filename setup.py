@@ -25,11 +25,14 @@ setup(
     url='https://github.com/scipion-em/scipion-em-empiar',
     author='I2PC',
     author_email='scipion@cnb.csic.es',
-    keywords='scipion empiar scipion-2.0',
+    keywords='scipion empiar scipion-3.0',
     packages=find_packages(),
-    install_requires=['empiar-depositor', 'jsonschema'],
+    install_requires=['empiar-depositor', 'jsonschema', 'scipion-em'],
     package_data={
        'empiar': ['EMPIAR_logo.png', 'empiar_deposition.schema.json',
                   'empiar_deposition_template.json', 'protocols.conf'],
+    },
+    entry_points={
+        'pyworkflow.plugin': 'empiar = empiar'
     }
 )

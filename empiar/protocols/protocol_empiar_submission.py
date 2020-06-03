@@ -25,22 +25,21 @@
 # **************************************************************************
 
 import os
-import glob
 import json
 import copy
-import subprocess
 
 import jsonschema
 from empiar_depositor import empiar_depositor
-from empiar.constants import (ASPERA_PASS, EMPIAR_TOKEN,
-                              ASCP_PATH, DEPOSITION_SCHEMA,
-                              DEPOSITION_TEMPLATE)
-from tkMessageBox import showerror
-from pyworkflow.em.protocol import EMProtocol
+
+from pwem import emlib
+from pwem.protocols import EMProtocol
 from pyworkflow.protocol import params
-from pyworkflow.em.convert import ImageHandler
 from pyworkflow.object import String
 import pyworkflow.utils as pwutils
+
+from ..constants import (ASPERA_PASS, EMPIAR_TOKEN,
+                         ASCP_PATH, DEPOSITION_SCHEMA,
+                         DEPOSITION_TEMPLATE)
 
 
 class EmpiarMappingError(Exception):
@@ -54,7 +53,7 @@ class EmpiarDepositor(EMProtocol):
     Deposit image sets to empiar
     """
     _label = 'Empiar deposition'
-    _ih = ImageHandler()
+    _ih = emlib.image.ImageHandler()
     _imageSetCategories = {
                               "SetOfMicrographs": "T1",
                               "SetOfMovies": 'T2',
@@ -62,20 +61,20 @@ class EmpiarDepositor(EMProtocol):
                               # 'T4' : 'micrographs - focal pairs - contrast inverted',
                               "SetOfMovieParticles": 'T5',  # : 'picked particles - single frame - unprocessed',
                               # 'T6' : 'picked particles - multiframe - unprocessed',
-                              "SetOfParticles" : 'T7',  # 'picked particles - single frame - processed',
+                              "SetOfParticles": 'T7',  # 'picked particles - single frame - processed',
                               # "SetOfMovieParticles": 'T8',  # : 'picked particles - multiframe - processed',
-                              "TiltPairSet": 'T9',   #   : 'tilt series',
-                              "SetOfAverages": 'T10',  #  'class averages',
+                              "TiltPairSet": 'T9',  # : 'tilt series',
+                              "SetOfAverages": 'T10',  # 'class averages',
                               # 'OT' : 'other, in this case please specify the category in the second element.'
                             }
     _imageSetFormats = {
-                           'mrc'    : 'T1',
-                           'mrcs'   : 'T2',
-                           'tiff'   : 'T3',
-                           'img'    : 'T4',  # imagic
-                           'dm3'    : 'T5',
-                           'dm4'    : 'T6',
-                           'spi'    : 'T7',  # spider
+                           'mrc': 'T1',
+                           'mrcs': 'T2',
+                           'tiff': 'T3',
+                           'img': 'T4',  # imagic
+                           'dm3': 'T5',
+                           'dm4': 'T6',
+                           'spi': 'T7',  # spider
     }
 
     _experimentTypes = ['1', '2', '3', '4', '5', '6']
@@ -102,13 +101,13 @@ class EmpiarDepositor(EMProtocol):
                      'ZM', 'ZW']
 
     _voxelTypes = {
-        _ih.DT_UCHAR: 'T1',   # 'UNSIGNED BYTE'
-        _ih.DT_SCHAR: 'T2',   # 'SIGNED BYTE'
-        _ih.DT_USHORT: 'T3',  # 'UNSIGNED 16 BIT INTEGER'
-        _ih.DT_SHORT: 'T4',   # 'SIGNED 16 BIT INTEGER'
-        _ih.DT_UINT: 'T5',    # 'UNSIGNED 32 BIT INTEGER'
-        _ih.DT_INT: 'T6',     # 'SIGNED 32 BIT INTEGER'
-        _ih.DT_FLOAT: 'T7'    # '32 BIT FLOAT'
+        emlib.DT_UCHAR: 'T1',   # 'UNSIGNED BYTE'
+        emlib.DT_SCHAR: 'T2',   # 'SIGNED BYTE'
+        emlib.DT_USHORT: 'T3',  # 'UNSIGNED 16 BIT INTEGER'
+        emlib.DT_SHORT: 'T4',   # 'SIGNED 16 BIT INTEGER'
+        emlib.DT_UINT: 'T5',    # 'UNSIGNED 32 BIT INTEGER'
+        emlib.DT_INT: 'T6',     # 'SIGNED 32 BIT INTEGER'
+        emlib.DT_FLOAT: 'T7'    # '32 BIT FLOAT'
     }
 
     OUTPUT_DEPO_JSON = 'deposition.json'
@@ -244,7 +243,6 @@ class EmpiarDepositor(EMProtocol):
                       help="Two letter country code eg. ES. This should not be empty if not using a custom template."
                            "\nValid country codes are %s" % " ".join(self._countryCodes))
 
-
         form.addSection(label="Corresponding Author")
         form.addParam('caFirstName', params.StringParam, label='First name', condition="not resume",
                       help="Corresponding author's first name e.g. Juan. "
@@ -261,8 +259,6 @@ class EmpiarDepositor(EMProtocol):
         form.addParam('caCountry', params.StringParam, label="Country", condition="not resume",
                       help="Two letter country code e.g. ES. This should not be empty if not using a custom template."
                            "\nValid country codes are %s" % " ".join(self._countryCodes))
-
-
 
     # --------------- INSERT steps functions ----------------
 
@@ -381,7 +377,6 @@ class EmpiarDepositor(EMProtocol):
         valid = jsonschema.validate(depoDict, schema)  # raises exception if not valid
         return True
 
-
     # --------------- imageSet utils -------------------------
 
     def getEmpiarCategory(self, imageSet):
@@ -396,14 +391,14 @@ class EmpiarDepositor(EMProtocol):
         ext = pwutils.getExt(imagePath).lower().strip('.')
         imgFormat = self._imageSetFormats.get(ext, None)
         if imgFormat is None:
-            raise EmpiarMappingError('Image format not recognized: ' % ext)
+            raise EmpiarMappingError('Image format not recognized: %s' % ext)
         else:
             return imgFormat, ''
 
     def getVoxelType(self, imageObj):
         dataType = self._ih.getDataType(imageObj)
         empiarType = self._voxelTypes.get(dataType, None)
-        if empiarType == None:
+        if empiarType is None:
             raise EmpiarMappingError('Could not map voxel type for image %s' % imageObj.getFilename())
         else:
             return empiarType, ''

@@ -24,4 +24,4 @@
 # *
 # **************************************************************************
 
-from protocol_empiar_submission import EmpiarDepositor
+from .protocol_empiar_submission import EmpiarDepositor

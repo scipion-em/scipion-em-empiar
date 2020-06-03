@@ -25,23 +25,17 @@
 # *
 # **************************************************************************
 
-"""
-This package contains the protocols and data for EMPIAR
-"""
-#from plugin import _plugin
-#from empiar.protocols.protocol_empiar_submission import EmpiarDepositor
-
 import os
-import pyworkflow.em
+import pwem
 
-from empiar.constants import *
+from .constants import *
 
 
 _references = ['Iudin2016']
 _logo = 'EMPIAR_logo.png'
 
 
-class Plugin(pyworkflow.em.Plugin):
+class Plugin(pwem.Plugin):
     _pathVars = [ASCP_PATH]
 
     @classmethod
@@ -62,10 +56,3 @@ class Plugin(pyworkflow.em.Plugin):
                        createBuildDir=True,
                        target='ascp/aspera-connect-3.7.4.147727-linux-64.sh',
                        commands=empiar_cmd)
-
-
-pyworkflow.em.Domain.registerPlugin(__name__)
-
-
-
-
