@@ -2,6 +2,10 @@
   "$id": "https://empiar.org/empiar_deposition.schema.json#",
   "type": "object",
   "definitions": {},
+  "self": {
+    "format": "jsonschema",
+    "version": "1-0-0"
+  },
   "$schema": "http://json-schema.org/schema#",
   "properties": {
     "title": {
@@ -18,27 +22,42 @@
       "$id": "/properties/release_date",
       "type": "string",
       "title": "The Release_date Schema ",
-      "enum": ["IM", "EP", "HP", "H1"],
-      "default": "IM",
-      "description": "Options for releasing entry to the public: IM - directly after the submission has been processed, EP - after the related EMDB entry has been released, HP - after the related primary citation has been published and H1 - delay release of entry by one year from the date of deposition.",
+      "enum": [
+        "RE",
+        "EP",
+        "HP",
+        "HO"
+      ],
+      "default": "RE",
+      "description": "Options for releasing entry to the public: RE - directly after the submission has been processed, EP - after the related EMDB entry has been released, HP - after the related primary citation has been published and HO - delay release of entry by one year from the date of deposition.",
       "examples": [
-        "IM"
+        "RE"
       ]
     },
     "experiment_type": {
       "$id": "/properties/experiment_type",
       "type": "integer",
       "title": "The Experiment_type Schema ",
-      "enum": [1, 2, 3, 4, 5, 6],
+      "enum": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
       "default": 3,
-      "description": "Type of the EMPIAR entry: 1 - image data collected using soft x-ray tomography, 2 - simulated data, for instance, created using InSilicoTEM (note: we only accept simulated data in special circumstances such as test/training sets for validation challenges: you need to ask for and be granted permission PRIOR to deposition otherwise the dataset will be rejected), 3 - raw image data relating to structures deposited to the Electron Microscopy Data Bank, 4 - image data collected using serial block-face scanning electron microscopy (like the Gatan 3View system), 5 - image data collected using focused ion beam scanning electron microscopy, 6 - integrative hybrid modelling data.",
+      "description": "Type of the EMPIAR entry: 1 - image data collected using soft x-ray tomography, 2 - simulated data, for instance, created using InSilicoTEM (note: we only accept simulated data in special circumstances such as test/training sets for validation challenges: you need to ask for and be granted permission PRIOR to deposition otherwise the dataset will be rejected), 3 - raw image data relating to structures deposited to the Electron Microscopy Data Bank, 4 - image data collected using serial block-face scanning electron microscopy (like the Gatan 3View system), 5 - image data collected using focused ion beam scanning electron microscopy, 6 - integrative hybrid modelling data, 7 - correlative light-electron microscopy, 8 - correlative light X-ray microscopy, 9 - microcrystal electron diffraction",
       "examples": [
         3
       ]
     },
     "cross_references": {
       "$id": "/properties/cross_references",
-      "type": ["null", "array"],
+      "type": "array",
       "items": {
         "$id": "/properties/cross_references/items",
         "type": "object",
@@ -54,12 +73,55 @@
           }
         }
       },
-      "default": null,
+      "default": [],
       "description": "Array of references to EMDB"
+    },
+    "biostudies_references": {
+      "$id": "/properties/biostudies_references",
+      "type": "array",
+      "items": {
+        "$id": "/properties/biostudies_references/items",
+        "type": "object",
+        "properties": {
+          "name": {
+            "$id": "/properties/biostudies_references/items/properties/name",
+            "type": "string",
+            "pattern": "^S-.*$",
+            "title": "The Name Schema ",
+            "examples": [
+              "S-SCDT-EMBOR-2018-46196V1"
+            ]
+          }
+        }
+      },
+      "default": [],
+      "description": "Array of references to BioStudies"
+    },
+    "idr_references": {
+      "$id": "/properties/idr_references",
+      "type": "array",
+      "items": {
+        "$id": "/properties/idr_references/items",
+        "type": "object",
+        "properties": {
+          "name": {
+            "$id": "/properties/idr_references/items/properties/name",
+            "type": "string",
+            "pattern": "^idr.*$",
+            "title": "The Name Schema ",
+            "examples": [
+              "idr1040"
+            ]
+          }
+        }
+      },
+      "default": [],
+      "description": "Array of references to IDR"
     },
     "authors": {
       "$id": "/properties/authors",
       "type": "array",
+      "minItems": 1,
       "items": {
         "$id": "/properties/authors/items",
         "type": "object",
@@ -86,7 +148,10 @@
           },
           "author_orcid": {
             "$id": "/properties/authors/items/properties/author_orcid",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "pattern": "^([0-9]{4}-){3}[0-9]{3}([0-9]|X)$",
             "title": "The Author_orcid Schema ",
             "default": null,
@@ -96,11 +161,17 @@
             ]
           }
         },
-        "required": ["name", "order_id"]
+        "required": [
+          "name",
+          "order_id"
+        ]
       },
       "description": "Array of entry authors. Has to contain all the relevant authors, even if one of them is filled into the corresponding_author or principal_investigator. Can be different from the citation author array.",
       "examples": [
-        ["('Chang', 'YW')", "('Smith', 'JD')"]
+        [
+          "('Chang', 'YW')",
+          "('Smith', 'JD')"
+        ]
       ]
     },
     "corresponding_author": {
@@ -109,7 +180,10 @@
       "properties": {
         "author_orcid": {
           "$id": "/properties/corresponding_author/items/properties/author_orcid",
-          "type": ["null", "string"],
+          "type": [
+            "null",
+            "string"
+          ],
           "pattern": "^([0-9]{4}-){3}[0-9]{3}([0-9]|X)$",
           "title": "The Author_orcid Schema ",
           "description": "ORCID identifier of the author. Apart from complying with regex it has to satisfy the checksum: https://support.orcid.org/knowledgebase/articles/116780-structure-of-the-orcid-identifier",
@@ -129,7 +203,10 @@
         },
         "middle_name": {
           "$id": "/properties/corresponding_author/properties/middle_name",
-          "type": ["null", "string"],
+          "type": [
+            "null",
+            "string"
+          ],
           "pattern": "^[^0-9!\"£$%^&*()]+$",
           "title": "The Middle_name Schema ",
           "maxLength": 60,
@@ -159,7 +236,10 @@
         },
         "street": {
           "$id": "/properties/corresponding_author/properties/street",
-          "type": ["null", "string"],
+          "type": [
+            "null",
+            "string"
+          ],
           "title": "The Street Schema ",
           "maxLength": 255,
           "default": null,
@@ -169,7 +249,7 @@
         },
         "town_or_city": {
           "$id": "/properties/corresponding_author/properties/town_or_city",
-          "type": ["null", "string"],
+          "type": "string",
           "title": "The Town_or_city Schema ",
           "maxLength": 60,
           "default": null,
@@ -179,7 +259,10 @@
         },
         "state_or_province": {
           "$id": "/properties/corresponding_author/properties/state_or_province",
-          "type": ["null", "string"],
+          "type": [
+            "null",
+            "string"
+          ],
           "title": "The State_or_province Schema ",
           "maxLength": 60,
           "default": null,
@@ -189,7 +272,7 @@
         },
         "post_or_zip": {
           "$id": "/properties/corresponding_author/properties/post_or_zip",
-          "type": ["null", "string"],
+          "type": "string",
           "title": "The Post_or_zip Schema ",
           "maxLength": 60,
           "default": null,
@@ -199,7 +282,10 @@
         },
         "telephone": {
           "$id": "/properties/corresponding_author/properties/telephone",
-          "type": ["null", "string"],
+          "type": [
+            "null",
+            "string"
+          ],
           "title": "The Telephone Schema ",
           "maxLength": 60,
           "default": null,
@@ -209,7 +295,10 @@
         },
         "fax": {
           "$id": "/properties/corresponding_author/properties/fax",
-          "type": ["null", "string"],
+          "type": [
+            "null",
+            "string"
+          ],
           "title": "The Fax Schema ",
           "maxLength": 60,
           "default": null,
@@ -487,18 +576,28 @@
           ]
         }
       },
-      "required": ["first_name", "last_name", "organization", "email", "country"]
+      "required": [
+        "first_name",
+        "last_name",
+        "organization",
+        "email",
+        "country"
+      ]
     },
     "principal_investigator": {
       "$id": "/properties/principal_investigator",
       "type": "array",
+      "minItems": 1,
       "items": {
         "$id": "/properties/corresponding_author",
         "type": "object",
         "properties": {
           "author_orcid": {
             "$id": "/properties/principal_investigator/items/properties/author_orcid",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "pattern": "^([0-9]{4}-){3}[0-9]{3}([0-9]|X)$",
             "title": "The Author_orcid Schema ",
             "description": "ORCID identifier of the author. Apart from complying with regex it has to satisfy the checksum: https://support.orcid.org/knowledgebase/articles/116780-structure-of-the-orcid-identifier",
@@ -518,7 +617,10 @@
           },
           "middle_name": {
             "$id": "/properties/principal_investigator/properties/middle_name",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "pattern": "^[^0-9!\"£$%^&*()]+$",
             "title": "The Middle_name Schema ",
             "maxLength": 60,
@@ -548,7 +650,10 @@
           },
           "street": {
             "$id": "/properties/principal_investigator/properties/street",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "title": "The Street Schema ",
             "maxLength": 255,
             "default": null,
@@ -558,7 +663,7 @@
           },
           "town_or_city": {
             "$id": "/properties/principal_investigator/properties/town_or_city",
-            "type": ["null", "string"],
+            "type": "string",
             "title": "The Town_or_city Schema ",
             "maxLength": 60,
             "default": null,
@@ -568,7 +673,10 @@
           },
           "state_or_province": {
             "$id": "/properties/principal_investigator/properties/state_or_province",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "title": "The State_or_province Schema ",
             "maxLength": 60,
             "default": null,
@@ -578,7 +686,7 @@
           },
           "post_or_zip": {
             "$id": "/properties/principal_investigator/properties/post_or_zip",
-            "type": ["null", "string"],
+            "type": "string",
             "title": "The Post_or_zip Schema ",
             "maxLength": 60,
             "default": null,
@@ -588,7 +696,10 @@
           },
           "telephone": {
             "$id": "/properties/principal_investigator/properties/telephone",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "title": "The Telephone Schema ",
             "maxLength": 60,
             "default": null,
@@ -598,7 +709,10 @@
           },
           "fax": {
             "$id": "/properties/principal_investigator/properties/fax",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "title": "The Fax Schema ",
             "maxLength": 60,
             "default": null,
@@ -876,13 +990,43 @@
             ]
           }
         },
-        "required": ["first_name", "last_name", "organization", "email", "country"]
+        "required": [
+          "first_name",
+          "last_name",
+          "organization",
+          "email",
+          "country"
+        ]
       },
       "description": "Array of principal investigators."
+    },
+    "scipion": {
+      "$id": "/properties/scipion",
+      "type": "object",
+      "properties": {
+        "scipion_workflow": {
+          "$id": "/properties/scipion/items/properties/scipion_workflow",
+          "type": [
+            "null",
+            "string"
+          ],
+          "title": "The Scipion_workflow Schema ",
+          "default": null,
+          "maxLength": 200,
+          "description": "Scipion workflow file provides a great way to reproduce previous processing steps and is particularly useful to repeat steps for similar samples or to share knowledge between users.",
+          "examples": [
+            "data/workflow.json"
+          ]
+        }
+      },
+      "required": [
+        "scipion_workflow"
+      ]
     },
     "imagesets": {
       "$id": "/properties/imagesets",
       "type": "array",
+      "minItems": 1,
       "items": {
         "$id": "/properties/imagesets/items",
         "type": "object",
@@ -900,12 +1044,12 @@
           "directory": {
             "$id": "/properties/imagesets/items/properties/directory",
             "type": "string",
-            "pattern": "^/data/[^\\0]+$",
+            "pattern": "^[^\\0]+$",
             "title": "The Directory Schema ",
             "maxLength": 200,
             "description": "Path to the directory that would contain all image set files. The top-level directory 'data' is always reserved for the sake of conformity. The uploaded image sets will be placed in it as they are.",
             "examples": [
-              "/data/micrographs"
+              "data/micrographs"
             ]
           },
           "category": {
@@ -913,7 +1057,7 @@
             "type": "string",
             "pattern": "^(\\('T([2-9]|10?)', ''\\))|\\('OT', '[^\\0]+'\\)$",
             "title": "The Category Schema ",
-            "description": "T1' corresponds to 'micrographs - single frame', 'T2' - 'micrographs - multiframe', 'T3' - 'micrographs - focal pairs - unprocessed', 'T4' - 'micrographs - focal pairs - contrast inverted', 'T5' - 'picked particles - single frame - unprocessed', 'T6' - 'picked particles - multiframe - unprocessed', 'T7' - 'picked particles - single frame - processed', 'T8' - 'picked particles - multiframe - processed', 'T9' - 'tilt series', 'T10' - 'class averages', 'OT' - other, in this case please specify the category in the second element.",
+            "description": "'T1' corresponds to 'micrographs - single frame', 'T2' - 'micrographs - multiframe', 'T3' - 'micrographs - focal pairs - unprocessed', 'T4' - 'micrographs - focal pairs - contrast inverted', 'T5' - 'picked particles - single frame - unprocessed', 'T6' - 'picked particles - multiframe - unprocessed', 'T7' - 'picked particles - single frame - processed', 'T8' - 'picked particles - multiframe - processed', 'T9' - 'tilt series', 'T10' - 'class averages', 'OT' - other, in this case please specify the category in the second element.",
             "examples": [
               "('T9', '')",
               "('OT', 'new category name')"
@@ -924,7 +1068,7 @@
             "type": "string",
             "pattern": "^(\\('T([2-9]|10?)', ''\\))|\\('OT', '[A-Z0-9 ]+'\\)$",
             "title": "The Header_format Schema ",
-            "description": "'T1' corresponds to 'MRC', 'T2' - 'MRCS', 'T3' - 'TIFF', 'T4' - 'IMAGIC', 'T5' - 'DM3', 'T6' - 'DM4','T7' - 'SPIDER', 'OT' - other, in this case please specify the header format in the second element in capital letters.",
+            "description": "'T1' corresponds to 'MRC', 'T2' - 'MRCS', 'T3' - 'TIFF', 'T4' - 'IMAGIC', 'T5' - 'DM3', 'T6' - 'DM4', 'T7' - 'SPIDER', 'T8' - 'XML', 'OT' - other, in this case please specify the header format in the second element in capital letters.",
             "examples": [
               "('T1', '')",
               "('OT', 'NEW HEADER FORMAT')"
@@ -935,7 +1079,7 @@
             "type": "string",
             "pattern": "^(\\('T([2-9]|10?)', ''\\))|\\('OT', '[A-Z0-9 ]+'\\)$",
             "title": "The Data_format Schema ",
-            "description": "'T1' corresponds to 'MRC', 'T2' - 'MRCS', 'T3' - 'TIFF', 'T4' - 'IMAGIC', 'T5' - 'DM3', 'T6' - 'DM4','T7' - 'SPIDER', 'OT' - other, in this case please specify the header format in the second element in capital letters.",
+            "description": "'T1' corresponds to 'MRC', 'T2' - 'MRCS', 'T3' - 'TIFF', 'T4' - 'IMAGIC', 'T5' - 'DM3', 'T6' - 'DM4','T7' - 'SPIDER', 'T8' - 'BIG DATA VIEWER HDF5', 'OT' - other, in this case please specify the header format in the second element in capital letters.",
             "examples": [
               "('T1', '')",
               "('OT', 'NEW DATA FORMAT')"
@@ -959,7 +1103,10 @@
           },
           "frame_range_min": {
             "$id": "/properties/imagesets/items/properties/frame_range_min",
-            "type": ["null", "integer"],
+            "type": [
+              "null",
+              "integer"
+            ],
             "title": "The Frame_range_min Schema ",
             "default": null,
             "examples": [
@@ -968,7 +1115,10 @@
           },
           "frame_range_max": {
             "$id": "/properties/imagesets/items/properties/frame_range_max",
-            "type": ["null", "integer"],
+            "type": [
+              "null",
+              "integer"
+            ],
             "title": "The Frame_range_max Schema ",
             "default": null,
             "examples": [
@@ -988,7 +1138,10 @@
           },
           "pixel_width": {
             "$id": "/properties/imagesets/items/properties/pixel_width",
-            "type": ["null", "number"],
+            "type": [
+              "null",
+              "number"
+            ],
             "title": "The Pixel_width Schema ",
             "default": null,
             "examples": [
@@ -997,7 +1150,10 @@
           },
           "pixel_height": {
             "$id": "/properties/imagesets/items/properties/pixel_height",
-            "type": ["null", "number"],
+            "type": [
+              "null",
+              "number"
+            ],
             "title": "The Pixel_height Schema ",
             "default": null,
             "examples": [
@@ -1006,16 +1162,64 @@
           },
           "details": {
             "$id": "/properties/imagesets/items/properties/details",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "title": "The Details Schema ",
             "default": null,
             "examples": [
               "Three-dimensional in situ structure of a T4bP machine in its piliated and non-piliated states constructed from its tilt series."
             ]
           },
+          "micrographs_file_pattern": {
+            "$id": "/properties/imagesets/items/properties/micrographs_file_pattern",
+            "type": [
+              "null",
+              "string"
+            ],
+            "title": "The Micrographs_file_pattern Schema ",
+            "default": null,
+            "maxLength": 200,
+            "description": "The pattern for the micrographs that correspond to the picked particles.",
+            "examples": [
+              "data/micrographs/mc-*-05-2018-*.mrc"
+            ]
+          },
+          "picked_particles_file_pattern": {
+            "$id": "/properties/imagesets/items/properties/picked_particles_file_pattern",
+            "type": [
+              "null",
+              "string"
+            ],
+            "title": "The Picked_particles_file_pattern Schema ",
+            "default": null,
+            "maxLength": 200,
+            "description": "The pattern for the picked particle description files or the path to such a file if there is just one.",
+            "examples": [
+              "data/picked_particles.star"
+            ]
+          },
+          "picked_particles_directory": {
+            "$id": "/properties/imagesets/items/properties/picked_particles_directory",
+            "type": [
+              "null",
+              "string"
+            ],
+            "title": "The Picked_particles_directory Schema ",
+            "default": null,
+            "maxLength": 200,
+            "description": "The directory that contains the related picked particles.",
+            "examples": [
+              "data/picked_particles1"
+            ]
+          },
           "image_width": {
             "$id": "/properties/imagesets/items/properties/image_width",
-            "type": ["null", "integer"],
+            "type": [
+              "null",
+              "integer"
+            ],
             "title": "The Image_width Schema ",
             "default": null,
             "examples": [
@@ -1024,7 +1228,10 @@
           },
           "image_height": {
             "$id": "/properties/imagesets/items/properties/image_height",
-            "type": ["null", "integer"],
+            "type": [
+              "null",
+              "integer"
+            ],
             "title": "The Image_height Schema ",
             "default": null,
             "examples": [
@@ -1032,12 +1239,22 @@
             ]
           }
         },
-        "required": ["name", "directory", "category", "header_format", "data_format", "num_images_or_tilt_series", "frames_per_image", "voxel_type"]
+        "required": [
+          "name",
+          "directory",
+          "category",
+          "header_format",
+          "data_format",
+          "num_images_or_tilt_series",
+          "frames_per_image",
+          "voxel_type"
+        ]
       }
     },
     "citation": {
       "$id": "/properties/citation",
       "type": "array",
+      "minItems": 1,
       "items": {
         "$id": "/properties/citation/items",
         "type": "object",
@@ -1045,6 +1262,7 @@
           "authors": {
             "$id": "/properties/citation/items/properties/authors",
             "type": "array",
+            "minItems": 1,
             "items": {
               "$id": "/properties/citation/items/properties/authors/items",
               "type": "object",
@@ -1071,7 +1289,10 @@
                 },
                 "author_orcid": {
                   "$id": "/properties/citation/items/properties/authors/items/properties/author_orcid",
-                  "type": ["null", "string"],
+                  "type": [
+                    "null",
+                    "string"
+                  ],
                   "pattern": "^([0-9]{4}-){3}[0-9]{3}([0-9]|X)$",
                   "title": "The Author_orcid Schema ",
                   "default": null,
@@ -1081,12 +1302,15 @@
                   ]
                 }
               },
-              "required": ["name", "order_id"]
+              "required": [
+                "name",
+                "order_id"
+              ]
             }
           },
           "editors": {
             "$id": "/properties/citation/items/properties/editors",
-            "type": ["null", "array"],
+            "type": "array",
             "items": {
               "$id": "/properties/citation/items/properties/editors/items",
               "type": "object",
@@ -1113,7 +1337,10 @@
                 },
                 "author_orcid": {
                   "$id": "/properties/citation/items/properties/editors/items/properties/author_orcid",
-                  "type": ["null", "string"],
+                  "type": [
+                    "null",
+                    "string"
+                  ],
                   "pattern": "^([0-9]{4}-){3}[0-9]{3}([0-9]|X)$",
                   "title": "The Editor_orcid Schema ",
                   "default": null,
@@ -1123,7 +1350,10 @@
                   ]
                 }
               },
-              "required": ["name", "order_id"]
+              "required": [
+                "name",
+                "order_id"
+              ]
             }
           },
           "published": {
@@ -1158,7 +1388,10 @@
           },
           "volume": {
             "$id": "/properties/citation/items/properties/volume",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "title": "The Volume Schema ",
             "maxLength": 8,
             "default": null,
@@ -1169,7 +1402,10 @@
           },
           "country": {
             "$id": "/properties/citation/items/properties/country",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "title": "The Country Schema ",
             "enum": [
               null,
@@ -1430,7 +1666,10 @@
           },
           "first_page": {
             "$id": "/properties/citation/items/properties/first_page",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "title": "The First_page Schema ",
             "maxLength": 8,
             "default": null,
@@ -1440,7 +1679,10 @@
           },
           "last_page": {
             "$id": "/properties/citation/items/properties/last_page",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "title": "The Last_page Schema ",
             "maxLength": 8,
             "default": null,
@@ -1450,7 +1692,10 @@
           },
           "year": {
             "$id": "/properties/citation/items/properties/year",
-            "type": ["null", "integer"],
+            "type": [
+              "null",
+              "integer"
+            ],
             "title": "The Year Schema ",
             "minimum": 1000,
             "maximum": 9999,
@@ -1462,7 +1707,10 @@
           },
           "language": {
             "$id": "/properties/citation/items/properties/language",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "title": "The Language Schema ",
             "maxLength": 40,
             "default": null,
@@ -1472,7 +1720,10 @@
           },
           "doi": {
             "$id": "/properties/citation/items/properties/doi",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "pattern": "^10.[0-9]{4,9}/[-._;()/:A-z0-9]+$",
             "title": "The Doi Schema ",
             "maxLength": 80,
@@ -1484,7 +1735,10 @@
           },
           "pubmedid": {
             "$id": "/properties/citation/items/properties/pubmedid",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "pattern": "^[0-9]{1,8}((.[0-9]+)?)$",
             "title": "The Pubmedid Schema ",
             "maxLength": 20,
@@ -1496,7 +1750,10 @@
           },
           "details": {
             "$id": "/properties/citation/items/properties/details",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "title": "The Details Schema ",
             "maxlength": 65535,
             "default": null,
@@ -1506,7 +1763,10 @@
           },
           "book_chapter_title": {
             "$id": "/properties/citation/items/properties/book_chapter_title",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "title": "The Book_chapter_title Schema ",
             "maxLength": 80,
             "default": null,
@@ -1517,7 +1777,10 @@
           },
           "publisher": {
             "$id": "/properties/citation/items/properties/publisher",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "title": "The Publisher Schema ",
             "maxLength": 80,
             "default": null,
@@ -1528,7 +1791,10 @@
           },
           "publication_location": {
             "$id": "/properties/citation/items/properties/publication_location",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "title": "The Publication_location Schema ",
             "maxLength": 80,
             "default": null,
@@ -1539,7 +1805,10 @@
           },
           "journal": {
             "$id": "/properties/citation/items/properties/journal",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "title": "The Journal Schema ",
             "default": null,
             "description": "This field should be filled in only for journal publications. Otherwise, set it to null",
@@ -1549,7 +1818,10 @@
           },
           "journal_abbreviation": {
             "$id": "/properties/citation/items/properties/journal_abbreviation",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "title": "The Journal_abbreviation Schema ",
             "default": null,
             "description": "This field should be filled in only for journal publications. Otherwise, set it to null",
@@ -1559,7 +1831,10 @@
           },
           "issue": {
             "$id": "/properties/citation/items/properties/issue",
-            "type": ["null", "string"],
+            "type": [
+              "null",
+              "string"
+            ],
             "title": "The Issue Schema ",
             "default": null,
             "description": "This field should be filled in only for journal publications. Otherwise, set it to null",
@@ -1568,9 +1843,23 @@
             ]
           }
         },
-        "required": ["authors", "published", "j_or_nj_citation", "title"]
+        "required": [
+          "authors",
+          "published",
+          "j_or_nj_citation",
+          "title"
+        ]
       }
     }
   },
-  "required": ["title", "release_date", "experiment_type", "authors", "corresponding_author", "principal_investigator", "imagesets", "citation"]
+  "required": [
+    "title",
+    "release_date",
+    "experiment_type",
+    "authors",
+    "corresponding_author",
+    "principal_investigator",
+    "imagesets",
+    "citation"
+  ]
 }
