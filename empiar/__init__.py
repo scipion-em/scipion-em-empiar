@@ -40,7 +40,7 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def _defineVariables(cls):
-        cls._defineVar(ASCP_PATH,  os.path.expanduser('~/.aspera/connect/bin/ascp'))
+        cls._defineVar(ASCP_PATH, os.path.expanduser('~/.aspera/connect/bin/ascp'))
         cls._defineVar(ASPERA_PASS, '')
         cls._defineVar(EMPIAR_TOKEN, '')
 

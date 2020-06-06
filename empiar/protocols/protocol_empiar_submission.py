@@ -77,8 +77,8 @@ class EmpiarDepositor(EMProtocol):
                            'spi': 'T7',  # spider
     }
 
-    _experimentTypes = ['1', '2', '3', '4', '5', '6']
-    _releaseDateTypes = ["IM", "EP", "HP", "H1"]
+    _experimentTypes = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+    _releaseDateTypes = ["RE", "EP", "HP", "HO"]
     _countryCodes = ['AD', 'AE', 'AF', 'AG', 'AI', 'AL', 'AM', 'AO', 'AQ', 'AR', 'AS', 'AT', 'AU',
                      'AW', 'AZ', 'BA', 'BB', 'BD', 'BE', 'BF', 'BG', 'BH', 'BI', 'BJ', 'BL', 'BM',
                      'BN', 'BO', 'BR', 'BS', 'BT', 'BV', 'BW', 'BY', 'BZ', 'CA', 'CC', 'CD', 'CF',
@@ -207,15 +207,18 @@ class EmpiarDepositor(EMProtocol):
                            "4 - image data collected using serial block-face scanning electron microscopy \n"
                            "    (like the Gatan 3View system)\n"
                            "5 - image data collected using focused ion beam scanning electron microscopy\n"
-                           "6 - integrative hybrid modelling data.")
+                           "6 - integrative hybrid modelling data\n"
+                           "7 - correlative light-electron microscopy\n"
+                           "8 - correlative light X-ray microscopy\n"
+                           "9 - microcrystal electron diffraction")
         form.addParam('releaseDate', params.EnumParam, label="Release date", condition="not resume",
-                      choices=self._releaseDateTypes, default=2, important=True,
+                      choices=self._releaseDateTypes, default=0, important=True,
                       help="EMPIAR release date:\n"
                            "Options for releasing entry to the public: \n"
-                           "IM - directly after the submission has been processed\n"
+                           "RE - directly after the submission has been processed\n"
                            "EP - after the related EMDB entry has been released\n"
                            "HP - after the related primary citation has been published\n"
-                           "H1 - delay release of entry by one year from the date of deposition"
+                           "HO - delay release of entry by one year from the date of deposition"
                       )
 
         form.addSection(label='Image sets')
@@ -233,12 +236,16 @@ class EmpiarDepositor(EMProtocol):
                       help="PI first name e.g. Juan- this should not be empty if not using a custom template.")
         form.addParam('piLastName', params.StringParam, label='Last name', condition="not resume",
                       help='PI Last name e.g. Perez - this should not be empty if not using a custom template.')
-        form.addParam('piOrg', params.StringParam, label='organization', condition="not resume",
+        form.addParam('piOrg', params.StringParam, label='Organization', condition="not resume",
                       help="The name of the organization e.g. Biocomputing Unit, CNB-CSIC \n"
                            "This should not be empty if not using a custom template.")
         form.addParam('piEmail', params.StringParam, label="Email", condition="not resume",
                       help='PI Email address e.g. jperez@org.es - '
                            'this should not be empty if not using a custom template.')
+        form.addParam('piPost', params.StringParam, label="Post or zip", condition="not resume",
+                      help="Post or ZIP code. This should not be empty if not using a custom template.")
+        form.addParam('piTown', params.StringParam, label="Town or city", condition="not resume",
+                      help="Town or city name. This should not be empty if not using a custom template.")
         form.addParam('piCountry', params.StringParam, label="Country", condition="not resume",
                       help="Two letter country code eg. ES. This should not be empty if not using a custom template."
                            "\nValid country codes are %s" % " ".join(self._countryCodes))
@@ -250,12 +257,16 @@ class EmpiarDepositor(EMProtocol):
         form.addParam('caLastName', params.StringParam, label='Last name', condition="not resume",
                       help="Corresponding author's Last name e.g. Perez. "
                            "This should not be empty if not using a custom template.")
-        form.addParam('caOrg', params.StringParam, label='organization', condition="not resume",
+        form.addParam('caOrg', params.StringParam, label='Organization', condition="not resume",
                       help="The name of the organization e.g. Biocomputing Unit, CNB-CSIC."
                            "This should not be empty if not using a custom template.")
         form.addParam('caEmail', params.StringParam, label="Email", condition="not resume",
                       help="Corresponding author's Email address e.g. jperez@org.es. "
                            "This should not be empty if not using a custom template.")
+        form.addParam('caPost', params.StringParam, label="Post or zip", condition="not resume",
+                      help="Post or ZIP code. This should not be empty if not using a custom template.")
+        form.addParam('caTown', params.StringParam, label="Town or city", condition="not resume",
+                      help="Town or city name. This should not be empty if not using a custom template.")
         form.addParam('caCountry', params.StringParam, label="Country", condition="not resume",
                       help="Two letter country code e.g. ES. This should not be empty if not using a custom template."
                            "\nValid country codes are %s" % " ".join(self._countryCodes))
@@ -282,7 +293,7 @@ class EmpiarDepositor(EMProtocol):
 
             entryAuthorStr = self.entryAuthor.get().split(',')
             self.entryAuthorStr = "'%s', '%s'" % (entryAuthorStr[0].strip(), entryAuthorStr[1].strip())
-            self.releaseDate = self._releaseDateTypes[self.releaseDate.get()]
+            self.releaseDate = self.getEnumText('releaseDate')
             self.experimentType = self.experimentType.get()+1
             jsonStr = open(jsonTemplatePath, 'rb').read().decode('utf-8')
             jsonStr = jsonStr % self.__dict__
@@ -303,7 +314,7 @@ class EmpiarDepositor(EMProtocol):
         self.validateDepoJson(depoDict)
 
     def submitDepositionStep(self):
-        depositorCall = '%(resume)s %(token)s %(depoJson)s %(ascp)s %(dataDir)s'
+        depositorCall = '%(resume)s -a %(ascp)s %(token)s %(depoJson)s %(dataDir)s'
         args = {'resume': '-r %s %s' % (self.entryID, self.uniqueDir) if self.resume else "",
                 'token': os.environ[EMPIAR_TOKEN],
                 'depoJson': os.path.abspath(self.depositionJsonPath.get()),
