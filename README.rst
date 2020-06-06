@@ -8,7 +8,7 @@ This project is a Scipion plugin to make depositions to https://www.ebi.ac.uk/pd
 Setup
 =====
 
-- **Install this plugin:**
+**Install this plugin:**
 
 .. code-block::
 
@@ -19,6 +19,7 @@ OR
   - through the plugin manager GUI by launching Scipion and following **Configuration** >> **Plugins**
 
 Alternatively, in devel mode:
+
 
 .. code-block::
 
