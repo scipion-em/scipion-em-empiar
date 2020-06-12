@@ -25,10 +25,9 @@
 # **************************************************************************
 
 import os
-import glob
 import json
 import copy
-import subprocess
+
 import time
 
 import jsonschema
@@ -36,14 +35,12 @@ from empiar_depositor import empiar_depositor
 from empiar.constants import (ASPERA_PASS, EMPIAR_TOKEN,
                               ASCP_PATH, DEPOSITION_SCHEMA,
                               DEPOSITION_TEMPLATE)
-from tkMessageBox import showerror
 from pyworkflow.em.protocol import EMProtocol
+from pyworkflow.em.data import SetOfClasses, SetOfImages, SetOfCTF
 from pyworkflow.protocol import params
-from pyworkflow.em.convert import ImageHandler
 from pyworkflow.object import String, Set
 import pyworkflow.utils as pwutils
-from pyworkflow.install.plugin_funcs import PluginInfo
-
+from pyworkflow.em.convert import ImageHandler
 
 class EmpiarMappingError(Exception):
     """To raise it when we can't map Scipion data to EMPIAR data,
@@ -153,6 +150,8 @@ class EmpiarDepositor(EMProtocol):
 
     OUTPUT_NAME = 'outputName'
     OUTPUT_ITEMS = 'outputItems'
+    ITEM_ID = 'item_id'
+    ITEM_REPRESENTATION = 'item_representation'
 
     _outputTemplate = {
         OUTPUT_NAME: ""
@@ -171,6 +170,7 @@ class EmpiarDepositor(EMProtocol):
         self.entryAuthorStr = ""
         self.workflowPath = String()
         self.depositionJsonPath = String()
+        self.ih = ImageHandler()
 
     # --------------- DEFINE param functions ---------------
 
@@ -307,6 +307,7 @@ class EmpiarDepositor(EMProtocol):
         # make folder in extra
         if not self.resume:
             pwutils.makePath(self._getExtraPath(self.entryTopLevel.get()))
+            pwutils.makePath(self.getTopLevelPath('data'))
 
             # export workflow json
             self.exportWorkflow()
@@ -514,17 +515,76 @@ class EmpiarDepositor(EMProtocol):
         return workflowDict
 
     def getOutputDict(self, output):
-        #outputDict = copy.deepcopy(self._outputTemplate)
+
         outputDict = {}
         outputDict[self.OUTPUT_NAME] = output.getObjName()
+
         if isinstance(output, Set):
-            items = {}
-            for item in output.iterItems():
-                attributes = item.getAttributes()
-                itemDict = {}
-                for key, value in attributes:
-                    itemDict[key] = str(value)
-                items[item.getObjId()] = itemDict
-                if item.getObjId() == 3: break;
-            outputDict[self.OUTPUT_ITEMS] = items
+            outputDict[self.OUTPUT_ITEMS] = self.getSetDict(output)
+        #else:
+
         return outputDict
+
+
+    def getSetDict(self, set):
+
+        #TODO: Refactorizar esto, no me convence
+
+        items = []
+        if isinstance(set, SetOfClasses):
+            for item in set.iterItems():
+                itemDict = self.getItemDict(item, False)
+                # use representative as item representation
+                imgLoc = item.getRepresentative().getLocation()
+                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
+                self.ih.convert(imgLoc, repAbsPath)
+                itemDict[self.ITEM_REPRESENTATION] = self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getFileName(), 'jpg'))
+                items.append(itemDict)
+                if item.getObjId() == 3: break;
+        elif isinstance(set, SetOfImages):
+            for item in set.iterItems():
+                itemDict = self.getItemDict(item, False)
+                # use representative as item representation
+                imgLoc = item.getLocation()
+                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', '%s_%s' % (item.getIndex(), pwutils.replaceBaseExt(item.getFileName(), 'jpg'))))
+                self.ih.convert(imgLoc, repAbsPath)
+                itemDict[self.ITEM_REPRESENTATION] = self.getTopLevelPath('data', '%s_%s' % (item.getIndex(), pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
+                items.append(itemDict)
+                if item.getObjId() == 3: break;
+        elif isinstance(set, SetOfCTF):
+            for item in set.iterItems():
+                itemDict = self.getItemDict(item, False)
+                # use psdFile as item representation
+                imgName = item.getPsdFile()
+                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', pwutils.replaceBaseExt(imgName, 'jpg')))
+                self.ih.convert(imgName, repAbsPath)
+                itemDict[self.ITEM_REPRESENTATION] = self.getTopLevelPath('data', pwutils.replaceBaseExt(imgName, 'jpg'))
+                items.append(itemDict)
+                if item.getObjId() == 3: break;
+        else:
+            for item in set.iterItems():
+                itemDict = self.getItemDict(item, True)
+                items.append(itemDict)
+                if item.getObjId() == 3: break;
+
+        return items
+
+
+    def getItemDict(self, item, findRep):
+        itemDict = {}
+        itemDict[self.ITEM_ID] = item.getObjId()
+
+        attributes = item.getAttributes()
+
+        # Get item attributes
+        for key, value in attributes:
+            itemDict[key] = str(value)
+            # if findRep is True look for an attribute that is a path to represent that item
+            if findRep and os.path.exists(str(value)):
+                imgName = str(value)
+                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', pwutils.replaceBaseExt(imgName, 'png')))
+                self.ih.convert(imgName, repAbsPath)
+                itemDict[self.ITEM_REPRESENTATION] = self.getTopLevelPath('data', pwutils.replaceBaseExt(imgName, 'png'))
+
+        return itemDict
+
