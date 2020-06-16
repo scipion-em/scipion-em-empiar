@@ -36,7 +36,7 @@ from empiar.constants import (ASPERA_PASS, EMPIAR_TOKEN,
                               ASCP_PATH, DEPOSITION_SCHEMA,
                               DEPOSITION_TEMPLATE)
 from pyworkflow.em.protocol import EMProtocol
-from pyworkflow.em.data import SetOfClasses, SetOfImages, SetOfCTF
+from pyworkflow.em.data import Class2D, Class3D, Image, CTFModel, Volume
 from pyworkflow.protocol import params
 from pyworkflow.object import String, Set
 import pyworkflow.utils as pwutils
@@ -170,7 +170,6 @@ class EmpiarDepositor(EMProtocol):
         self.entryAuthorStr = ""
         self.workflowPath = String()
         self.depositionJsonPath = String()
-        self.ih = ImageHandler()
 
     # --------------- DEFINE param functions ---------------
 
@@ -323,7 +322,9 @@ class EmpiarDepositor(EMProtocol):
             jsonStr = jsonStr % self.__dict__
             depoDict = json.loads(jsonStr)
             imageSets = self.processImageSets()
-            depoDict[self.IMGSET_KEY] = imageSets
+            if len(imageSets) > 0:
+                print("Imagesets is not empty")
+                depoDict[self.IMGSET_KEY] = imageSets
 
             depoDict[self.SCIPION_WORKFLOW_KEY] = self.getScipionWorkflow()
             depoJson = self.getTopLevelPath(self.OUTPUT_DEPO_JSON)
@@ -392,7 +393,6 @@ class EmpiarDepositor(EMProtocol):
         return os.path.join(self._getExtraPath(self.entryTopLevel.get()), *paths)
 
     def exportWorkflow(self):
-        #time.sleep(30)
         project = self.getProject()
         workflowProts = [p for p in project.getRuns()]  # workflow prots are all prots if no json provided
         workflowJsonPath = os.path.join(project.path, self.getTopLevelPath(self.OUTPUT_WORKFLOW))
@@ -407,9 +407,15 @@ class EmpiarDepositor(EMProtocol):
                 summary.append("Input: %s \n" % str(input.get()))
 
             protDicts[prot.getObjId()]['output'] = []
+            num = 0
             for a, output in prot.iterOutputAttributes():
-                summary.append("Output: %s \n" % str(output))
+                print('output key is %s' % a)
+                num += 1
                 protDicts[prot.getObjId()]['output'].append(self.getOutputDict(output))
+                if num == 1:
+                    summary.append("Output: %s" % str(output))
+                else:
+                    summary.append(str(output))
 
             protDicts[prot.getObjId()]['summary'] = summary
 
@@ -505,8 +511,12 @@ class EmpiarDepositor(EMProtocol):
         inputSets = [s.get() for s in self.inputSets]
         imgSetDicts = []
         for imgSet in inputSets:
-            imgSetDict = self.getImageSetDict(imgSet)
-            imgSetDicts.append(imgSetDict)
+            try:
+                imgSetDict = self.getImageSetDict(imgSet)
+            except:
+                pass
+            else:
+                imgSetDicts.append(imgSetDict)
         return imgSetDicts
 
     def getScipionWorkflow(self):
@@ -519,72 +529,70 @@ class EmpiarDepositor(EMProtocol):
         outputDict = {}
         outputDict[self.OUTPUT_NAME] = output.getObjName()
 
+        items = []
+        # If output is a Set get a list with all items
         if isinstance(output, Set):
-            outputDict[self.OUTPUT_ITEMS] = self.getSetDict(output)
-        #else:
+            for item in output.iterItems():
+                itemDict = self.getItemDict(item)
+                items.append(itemDict)
+                if item.getObjId() == 3: break;
+        # If it is a single object then only one item is present
+        else:
+            items.append(self.getItemDict(output))
+
+        outputDict[self.OUTPUT_ITEMS] = items
 
         return outputDict
 
-
-    def getSetDict(self, set):
-
-        #TODO: Refactorizar esto, no me convence
-
-        items = []
-        if isinstance(set, SetOfClasses):
-            for item in set.iterItems():
-                itemDict = self.getItemDict(item, False)
-                # use representative as item representation
-                imgLoc = item.getRepresentative().getLocation()
-                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
-                self.ih.convert(imgLoc, repAbsPath)
-                itemDict[self.ITEM_REPRESENTATION] = self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getFileName(), 'jpg'))
-                items.append(itemDict)
-                if item.getObjId() == 3: break;
-        elif isinstance(set, SetOfImages):
-            for item in set.iterItems():
-                itemDict = self.getItemDict(item, False)
-                # use representative as item representation
-                imgLoc = item.getLocation()
-                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', '%s_%s' % (item.getIndex(), pwutils.replaceBaseExt(item.getFileName(), 'jpg'))))
-                self.ih.convert(imgLoc, repAbsPath)
-                itemDict[self.ITEM_REPRESENTATION] = self.getTopLevelPath('data', '%s_%s' % (item.getIndex(), pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
-                items.append(itemDict)
-                if item.getObjId() == 3: break;
-        elif isinstance(set, SetOfCTF):
-            for item in set.iterItems():
-                itemDict = self.getItemDict(item, False)
-                # use psdFile as item representation
-                imgName = item.getPsdFile()
-                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', pwutils.replaceBaseExt(imgName, 'jpg')))
-                self.ih.convert(imgName, repAbsPath)
-                itemDict[self.ITEM_REPRESENTATION] = self.getTopLevelPath('data', pwutils.replaceBaseExt(imgName, 'jpg'))
-                items.append(itemDict)
-                if item.getObjId() == 3: break;
-        else:
-            for item in set.iterItems():
-                itemDict = self.getItemDict(item, True)
-                items.append(itemDict)
-                if item.getObjId() == 3: break;
-
-        return items
-
-
-    def getItemDict(self, item, findRep):
+    def getItemDict(self, item):
         itemDict = {}
-        itemDict[self.ITEM_ID] = item.getObjId()
-
         attributes = item.getAttributes()
-
-        # Get item attributes
         for key, value in attributes:
             itemDict[key] = str(value)
-            # if findRep is True look for an attribute that is a path to represent that item
-            if findRep and os.path.exists(str(value)):
-                imgName = str(value)
-                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', pwutils.replaceBaseExt(imgName, 'png')))
-                self.ih.convert(imgName, repAbsPath)
-                itemDict[self.ITEM_REPRESENTATION] = self.getTopLevelPath('data', pwutils.replaceBaseExt(imgName, 'png'))
+
+        itemDict[self.ITEM_ID] = item.getObjId()
+
+        itemName = ''
+        try:
+            # Get item representation
+            if isinstance(item, Class2D):
+                # use representative as item representation
+                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
+                itemPath = item.getRepresentative().getLocation()
+                itemName = item.getFileName()
+            elif isinstance(item, Class3D):
+                # use middle slice of representative as item representation
+                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
+                itemPath = '%s@%s' %(item.getRepresentative().getDim()[0], item.getFileName())
+                itemName = item.getFileName()
+            elif isinstance(item, Volume):
+                # Get middle slice to represent the volume
+                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getFileName(),'jpg')))
+                # TODO: This does not work, read image first and use get_clip()
+                itemPath = '%s@%s' %(item.getDim()[0], item.getFileName())
+                itemName = item.getFileName()
+            elif isinstance(item, Image):
+                # use Location as item representation
+                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', '%s_%s' % (item.getIndex(), pwutils.replaceBaseExt(item.getFileName(), 'jpg'))))
+                itemPath = item.getLocation()
+                itemName = item.getFileName()
+            elif isinstance(item, CTFModel):
+                # use psdFile as item representation
+                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getPsdFile(), 'jpg')))
+                itemPath = item.getPsdFile()
+                itemName = item.getPsdFile()
+            else:
+                # in any other case look for a representation on attributes
+                for key, value in attributes:
+                    if os.path.exists(str(value)):
+                        repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', pwutils.replaceBaseExt(str(value), 'png')))
+                        itemPath = str(value)
+                        itemName = str(value)
+                        break
+            if itemName:
+                self._ih.convert(itemPath, repAbsPath)
+                itemDict[self.ITEM_REPRESENTATION] = self.getTopLevelPath('data', pwutils.replaceBaseExt(itemName, 'jpg'))
+        except:
+            print("Cannot obtain item representation for %s" % itemPath)
 
         return itemDict
-
