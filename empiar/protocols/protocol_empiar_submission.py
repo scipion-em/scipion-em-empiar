@@ -36,7 +36,7 @@ from empiar.constants import (ASPERA_PASS, EMPIAR_TOKEN,
                               ASCP_PATH, DEPOSITION_SCHEMA,
                               DEPOSITION_TEMPLATE)
 from pyworkflow.em.protocol import EMProtocol
-from pyworkflow.em.data import Class2D, Class3D, Image, CTFModel, Volume
+from pyworkflow.em.data import Class2D, Class3D, Image, CTFModel, Volume, Micrograph, Movie, Particle, Coordinate
 from pyworkflow.protocol import params
 from pyworkflow.object import String, Set
 import pyworkflow.utils as pwutils
@@ -149,7 +149,9 @@ class EmpiarDepositor(EMProtocol):
     }
 
     OUTPUT_NAME = 'outputName'
+    OUTPUT_TYPE = 'outputType'
     OUTPUT_ITEMS = 'outputItems'
+    OUTPUT_SIZE = 'outputSize'
     ITEM_ID = 'item_id'
     ITEM_REPRESENTATION = 'item_representation'
 
@@ -437,7 +439,15 @@ class EmpiarDepositor(EMProtocol):
             #pluginInfo = PluginInfo(pipName=plugin_pip_package, remote=False)
             #print (pluginInfo.printBinInfoStr())
 
-            # Get logs
+            # Get log (stdout)
+            outputs = []
+            logs = list(prot.getLogPaths())
+            if pwutils.exists(logs[0]):
+                logPath = self.getTopLevelPath('data', "%s_%s.log" % (prot.getObjId(), prot.getClassName()))
+                pwutils.copyFile(logs[0], logPath)
+                outputs = logPath
+
+            protDicts[prot.getObjId()]['log'] =  outputs
 
         for inputSetPointer in self.inputSets:
             inputSet = inputSetPointer.get()
@@ -528,14 +538,21 @@ class EmpiarDepositor(EMProtocol):
 
         outputDict = {}
         outputDict[self.OUTPUT_NAME] = output.getObjName()
+        outputDict[self.OUTPUT_TYPE] = output.getClassName()
 
         items = []
         # If output is a Set get a list with all items
         if isinstance(output, Set):
+            outputDict[self.OUTPUT_SIZE] = output.getSize()
+            count = 0
             for item in output.iterItems():
                 itemDict = self.getItemDict(item)
                 items.append(itemDict)
-                if item.getObjId() == 3: break;
+                count += 1
+                # In some types get only a limited number of items
+                if (isinstance(item, Micrograph) or isinstance(item, Movie) or isinstance(item, CTFModel)) and count == 3: break;
+                if (isinstance(item, Particle) or isinstance(item, Coordinate)) and count == 15: break;
+
         # If it is a single object then only one item is present
         else:
             items.append(self.getItemDict(output))
@@ -548,7 +565,9 @@ class EmpiarDepositor(EMProtocol):
         itemDict = {}
         attributes = item.getAttributes()
         for key, value in attributes:
-            itemDict[key] = str(value)
+            # Skip attributes that are Pointer
+            if not value.isPointer():
+                itemDict[key] = str(value)
 
         itemDict[self.ITEM_ID] = item.getObjId()
 
@@ -557,41 +576,41 @@ class EmpiarDepositor(EMProtocol):
             # Get item representation
             if isinstance(item, Class2D):
                 # use representative as item representation
-                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
+                repPath = self.getTopLevelPath('data', '%s_%s' % (item.getRepresentative().getIndex(), pwutils.replaceBaseExt(item.getRepresentative().getFileName(), 'jpg')))
                 itemPath = item.getRepresentative().getLocation()
                 itemName = item.getFileName()
             elif isinstance(item, Class3D):
                 # use middle slice of representative as item representation
-                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
+                repPath = self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getRepresentative().getFileName(), 'jpg'))
                 itemPath = '%s@%s' %(item.getRepresentative().getDim()[0], item.getFileName())
                 itemName = item.getFileName()
             elif isinstance(item, Volume):
                 # Get middle slice to represent the volume
-                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getFileName(),'jpg')))
+                repPath = self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getFileName(),'jpg'))
                 # TODO: This does not work, read image first and use get_clip()
                 itemPath = '%s@%s' %(item.getDim()[0], item.getFileName())
                 itemName = item.getFileName()
             elif isinstance(item, Image):
                 # use Location as item representation
-                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', '%s_%s' % (item.getIndex(), pwutils.replaceBaseExt(item.getFileName(), 'jpg'))))
+                repPath = self.getTopLevelPath('data', '%s_%s' % (item.getIndex(), pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
                 itemPath = item.getLocation()
                 itemName = item.getFileName()
             elif isinstance(item, CTFModel):
                 # use psdFile as item representation
-                repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getPsdFile(), 'jpg')))
+                repPath = self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getPsdFile(), 'jpg'))
                 itemPath = item.getPsdFile()
                 itemName = item.getPsdFile()
             else:
                 # in any other case look for a representation on attributes
                 for key, value in attributes:
                     if os.path.exists(str(value)):
-                        repAbsPath = os.path.join(self.getProject().path, self.getTopLevelPath('data', pwutils.replaceBaseExt(str(value), 'png')))
+                        repPath = self.getTopLevelPath('data', pwutils.replaceBaseExt(str(value), 'png'))
                         itemPath = str(value)
                         itemName = str(value)
                         break
             if itemName:
-                self._ih.convert(itemPath, repAbsPath)
-                itemDict[self.ITEM_REPRESENTATION] = self.getTopLevelPath('data', pwutils.replaceBaseExt(itemName, 'jpg'))
+                self._ih.convert(itemPath, os.path.join(self.getProject().path, repPath))
+                itemDict[self.ITEM_REPRESENTATION] = repPath
         except:
             print("Cannot obtain item representation for %s" % itemPath)
 
