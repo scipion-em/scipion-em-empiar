@@ -33,14 +33,12 @@ from empiar_depositor import empiar_depositor
 from empiar.constants import (ASPERA_PASS, EMPIAR_TOKEN,
                               ASCP_PATH, DEPOSITION_SCHEMA,
                               DEPOSITION_TEMPLATE)
-from pyworkflow.em.protocol import EMProtocol
-from pyworkflow.em.data import Class2D, Class3D, Image, CTFModel, Volume, Micrograph, Movie, Particle, Coordinate
+from pwem import emlib
+from pwem.protocols import EMProtocol
+from pwem.objects import Class2D, Class3D, Image, CTFModel, Volume, Micrograph, Movie, Particle, Coordinate
 from pyworkflow.protocol import params
 from pyworkflow.object import String, Set
 import pyworkflow.utils as pwutils
-from pyworkflow.em.convert import ImageHandler
-
-import xmippLib
 
 class EmpiarMappingError(Exception):
     """To raise it when we can't map Scipion data to EMPIAR data,
@@ -53,7 +51,7 @@ class EmpiarDepositor(EMProtocol):
     Deposit image sets to empiar
     """
     _label = 'Empiar deposition'
-    _ih = ImageHandler()
+    _ih = emlib.image.ImageHandler()
     _imageSetCategories = {
                               "SetOfMicrographs": "T1",
                               "SetOfMovies": 'T2',
@@ -61,20 +59,20 @@ class EmpiarDepositor(EMProtocol):
                               # 'T4' : 'micrographs - focal pairs - contrast inverted',
                               "SetOfMovieParticles": 'T5',  # : 'picked particles - single frame - unprocessed',
                               # 'T6' : 'picked particles - multiframe - unprocessed',
-                              "SetOfParticles" : 'T7',  # 'picked particles - single frame - processed',
+                              "SetOfParticles": 'T7',  # 'picked particles - single frame - processed',
                               # "SetOfMovieParticles": 'T8',  # : 'picked particles - multiframe - processed',
-                              "TiltPairSet": 'T9',   #   : 'tilt series',
-                              "SetOfAverages": 'T10',  #  'class averages',
+                              "TiltPairSet": 'T9',  # : 'tilt series',
+                              "SetOfAverages": 'T10',  # 'class averages',
                               # 'OT' : 'other, in this case please specify the category in the second element.'
                             }
     _imageSetFormats = {
-                           'mrc'    : 'T1',
-                           'mrcs'   : 'T2',
-                           'tiff'   : 'T3',
-                           'img'    : 'T4',  # imagic
-                           'dm3'    : 'T5',
-                           'dm4'    : 'T6',
-                           'spi'    : 'T7',  # spider
+                           'mrc': 'T1',
+                           'mrcs': 'T2',
+                           'tiff': 'T3',
+                           'img': 'T4',  # imagic
+                           'dm3': 'T5',
+                           'dm4': 'T6',
+                           'spi': 'T7',  # spider
     }
 
     _experimentTypes = ['1', '2', '3', '4', '5', '6']
@@ -101,13 +99,13 @@ class EmpiarDepositor(EMProtocol):
                      'ZM', 'ZW']
 
     _voxelTypes = {
-        _ih.DT_UCHAR: 'T1',   # 'UNSIGNED BYTE'
-        _ih.DT_SCHAR: 'T2',   # 'SIGNED BYTE'
-        _ih.DT_USHORT: 'T3',  # 'UNSIGNED 16 BIT INTEGER'
-        _ih.DT_SHORT: 'T4',   # 'SIGNED 16 BIT INTEGER'
-        _ih.DT_UINT: 'T5',    # 'UNSIGNED 32 BIT INTEGER'
-        _ih.DT_INT: 'T6',     # 'SIGNED 32 BIT INTEGER'
-        _ih.DT_FLOAT: 'T7'    # '32 BIT FLOAT'
+        emlib.DT_UCHAR: 'T1',   # 'UNSIGNED BYTE'
+        emlib.DT_SCHAR: 'T2',   # 'SIGNED BYTE'
+        emlib.DT_USHORT: 'T3',  # 'UNSIGNED 16 BIT INTEGER'
+        emlib.DT_SHORT: 'T4',   # 'SIGNED 16 BIT INTEGER'
+        emlib.DT_UINT: 'T5',    # 'UNSIGNED 32 BIT INTEGER'
+        emlib.DT_INT: 'T6',     # 'SIGNED 32 BIT INTEGER'
+        emlib.DT_FLOAT: 'T7'    # '32 BIT FLOAT'
     }
 
     OUTPUT_DEPO_JSON = 'deposition.json'
@@ -224,9 +222,12 @@ class EmpiarDepositor(EMProtocol):
                            "4 - image data collected using serial block-face scanning electron microscopy \n"
                            "    (like the Gatan 3View system)\n"
                            "5 - image data collected using focused ion beam scanning electron microscopy\n"
-                           "6 - integrative hybrid modelling data.")
+                           "6 - integrative hybrid modelling data\n"
+                           "7 - correlative light-electron microscopy\n"
+                           "8 - correlative light X-ray microscopy\n"
+                           "9 - microcrystal electron diffraction")
         form.addParam('releaseDate', params.EnumParam, label="Release date", condition="not resume",
-                      choices=self._releaseDateTypes, default=2, important=True,
+                      choices=self._releaseDateTypes, default=0, important=True,
                       help="EMPIAR release date:\n"
                            "Options for releasing entry to the public: \n"
                            "RE - directly after the submission has been processed\n"
@@ -250,12 +251,16 @@ class EmpiarDepositor(EMProtocol):
                       help="PI first name e.g. Juan- this should not be empty if not using a custom template.")
         form.addParam('piLastName', params.StringParam, label='Last name', condition="not resume",
                       help='PI Last name e.g. Perez - this should not be empty if not using a custom template.')
-        form.addParam('piOrg', params.StringParam, label='organization', condition="not resume",
+        form.addParam('piOrg', params.StringParam, label='Organization', condition="not resume",
                       help="The name of the organization e.g. Biocomputing Unit, CNB-CSIC \n"
                            "This should not be empty if not using a custom template.")
         form.addParam('piEmail', params.StringParam, label="Email", condition="not resume",
                       help='PI Email address e.g. jperez@org.es - '
                            'this should not be empty if not using a custom template.')
+        form.addParam('piPost', params.StringParam, label="Post or zip", condition="not resume",
+                      help="Post or ZIP code. This should not be empty if not using a custom template.")
+        form.addParam('piTown', params.StringParam, label="Town or city", condition="not resume",
+                      help="Town or city name. This should not be empty if not using a custom template.")
         form.addParam('piCountry', params.StringParam, label="Country", condition="not resume",
                       help="Two letter country code eg. ES. This should not be empty if not using a custom template."
                            "\nValid country codes are %s" % " ".join(self._countryCodes))
@@ -275,12 +280,16 @@ class EmpiarDepositor(EMProtocol):
         form.addParam('caLastName', params.StringParam, label='Last name', condition="not resume",
                       help="Corresponding author's Last name e.g. Perez. "
                            "This should not be empty if not using a custom template.")
-        form.addParam('caOrg', params.StringParam, label='organization', condition="not resume",
+        form.addParam('caOrg', params.StringParam, label='Organization', condition="not resume",
                       help="The name of the organization e.g. Biocomputing Unit, CNB-CSIC."
                            "This should not be empty if not using a custom template.")
         form.addParam('caEmail', params.StringParam, label="Email", condition="not resume",
                       help="Corresponding author's Email address e.g. jperez@org.es. "
                            "This should not be empty if not using a custom template.")
+        form.addParam('caPost', params.StringParam, label="Post or zip", condition="not resume",
+                      help="Post or ZIP code. This should not be empty if not using a custom template.")
+        form.addParam('caTown', params.StringParam, label="Town or city", condition="not resume",
+                      help="Town or city name. This should not be empty if not using a custom template.")
         form.addParam('caCountry', params.StringParam, label="Country", condition="not resume",
                       help="Two letter country code e.g. ES. This should not be empty if not using a custom template."
                            "\nValid country codes are %s" % " ".join(self._countryCodes))
@@ -292,8 +301,6 @@ class EmpiarDepositor(EMProtocol):
                       condition="not resume",
                       help='Post or zip e.g. 91125 - '
                            'this should not be empty if not using a custom template.')
-
-
 
     # --------------- INSERT steps functions ----------------
 
@@ -318,7 +325,7 @@ class EmpiarDepositor(EMProtocol):
 
             entryAuthorStr = self.entryAuthor.get().split(',')
             self.entryAuthorStr = "'%s', '%s'" % (entryAuthorStr[0].strip(), entryAuthorStr[1].strip())
-            self.releaseDate = self._releaseDateTypes[self.releaseDate.get()]
+            self.releaseDate = self.getEnumText('releaseDate')
             self.experimentType = self.experimentType.get()+1
             jsonStr = open(jsonTemplatePath, 'rb').read().decode('utf-8')
             jsonStr = jsonStr % self.__dict__
@@ -470,7 +477,6 @@ class EmpiarDepositor(EMProtocol):
         valid = jsonschema.validate(depoDict, schema)  # raises exception if not valid
         return True
 
-
     # --------------- imageSet utils -------------------------
 
     def getEmpiarCategory(self, imageSet):
@@ -485,14 +491,14 @@ class EmpiarDepositor(EMProtocol):
         ext = pwutils.getExt(imagePath).lower().strip('.')
         imgFormat = self._imageSetFormats.get(ext, None)
         if imgFormat is None:
-            raise EmpiarMappingError('Image format not recognized: ' % ext)
+            raise EmpiarMappingError('Image format not recognized: %s' % ext)
         else:
             return imgFormat, ''
 
     def getVoxelType(self, imageObj):
         dataType = self._ih.getDataType(imageObj)
         empiarType = self._voxelTypes.get(dataType, None)
-        if empiarType == None:
+        if empiarType is None:
             raise EmpiarMappingError('Could not map voxel type for image %s' % imageObj.getFilename())
         else:
             return empiarType, ''
@@ -587,7 +593,7 @@ class EmpiarDepositor(EMProtocol):
             elif isinstance(item, Volume):
                 # Get all slices in x,y and z directions to represent the volume
                 repPath = self.getTopLevelPath('data', item.getFileName())
-                I = xmippLib.Image(item.getFileName())
+                I = emlib.Image(item.getFileName())
                 I.writeSlices(repPath, 'jpg', 'Y')
             elif isinstance(item, Image):
                 # use Location as item representation

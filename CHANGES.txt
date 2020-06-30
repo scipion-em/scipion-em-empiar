@@ -1,3 +1,6 @@
+3.0.1:
+    - ported to Scipion 3 / python 3
+    - updated deposition schema from upstream (1.6b20, 20200429)
 V1.0.0b2, 21/11/2018 -- Change author
 V1.0.0b1, 21/11/2018 -- Add category mapping
 V1.0.0a4, 23/10/2018 -- Add a PIP module files
