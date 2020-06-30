@@ -28,8 +28,6 @@ import os
 import json
 import copy
 
-import time
-
 import jsonschema
 from empiar_depositor import empiar_depositor
 from empiar.constants import (ASPERA_PASS, EMPIAR_TOKEN,
@@ -41,6 +39,8 @@ from pyworkflow.protocol import params
 from pyworkflow.object import String, Set
 import pyworkflow.utils as pwutils
 from pyworkflow.em.convert import ImageHandler
+
+import xmippLib
 
 class EmpiarMappingError(Exception):
     """To raise it when we can't map Scipion data to EMPIAR data,
@@ -585,11 +585,10 @@ class EmpiarDepositor(EMProtocol):
                 itemPath = '%s@%s' %(item.getRepresentative().getDim()[0], item.getFileName())
                 itemName = item.getFileName()
             elif isinstance(item, Volume):
-                # Get middle slice to represent the volume
-                repPath = self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getFileName(),'jpg'))
-                # TODO: This does not work, read image first and use get_clip()
-                itemPath = '%s@%s' %(item.getDim()[0], item.getFileName())
-                itemName = item.getFileName()
+                # Get all slices in x,y and z directions to represent the volume
+                repPath = self.getTopLevelPath('data', item.getFileName())
+                I = xmippLib.Image(item.getFileName())
+                I.writeSlices(repPath, 'jpg', 'Y')
             elif isinstance(item, Image):
                 # use Location as item representation
                 repPath = self.getTopLevelPath('data', '%s_%s' % (item.getIndex(), pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
