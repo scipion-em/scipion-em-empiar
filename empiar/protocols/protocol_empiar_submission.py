@@ -586,10 +586,14 @@ class EmpiarDepositor(EMProtocol):
                 itemPath = item.getRepresentative().getLocation()
                 itemName = item.getFileName()
             elif isinstance(item, Class3D):
-                # use middle slice of representative as item representation
-                repPath = self.getTopLevelPath('data', '%s_%s' % (self.outputName, pwutils.replaceBaseExt(item.getRepresentative().getFileName(), 'jpg')))
-                itemPath = '%s@%s' %(item.getRepresentative().getDim()[0], item.getFileName())
-                itemName = item.getFileName()
+                # Get all slices in x,y and z directions of representative to represent the class
+                repDir = self.getTopLevelPath('data', '%s_%s' % (self.outputName, pwutils.removeBaseExt(item.getRepresentative().getFileName())))
+                pwutils.makePath(repDir)
+                I = emlib.Image(item.getRepresentative().getFileName())
+                I.writeSlices(os.path.join(repDir,'slicesX'), 'jpg', 'X')
+                I.writeSlices(os.path.join(repDir, 'slicesY'), 'jpg', 'Y')
+                I.writeSlices(os.path.join(repDir, 'slicesZ'), 'jpg', 'Z')
+                itemDict[self.ITEM_REPRESENTATION] = repDir
             elif isinstance(item, Volume):
                 # Get all slices in x,y and z directions to represent the volume
                 repDir = self.getTopLevelPath('data', '%s_%s' % (self.outputName, pwutils.removeBaseExt(item.getFileName())))
