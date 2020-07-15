@@ -541,7 +541,7 @@ class EmpiarDepositor(EMProtocol):
         return workflowDict
 
     def getOutputDict(self, output):
-
+        self.outputName = output.getObjName()
         outputDict = {}
         outputDict[self.OUTPUT_NAME] = output.getObjName()
         outputDict[self.OUTPUT_TYPE] = output.getClassName()
@@ -582,34 +582,38 @@ class EmpiarDepositor(EMProtocol):
             # Get item representation
             if isinstance(item, Class2D):
                 # use representative as item representation
-                repPath = self.getTopLevelPath('data', '%s_%s' % (item.getRepresentative().getIndex(), pwutils.replaceBaseExt(item.getRepresentative().getFileName(), 'jpg')))
+                repPath = self.getTopLevelPath('data', '%s_%s_%s' % (self.outputName, item.getRepresentative().getIndex(), pwutils.replaceBaseExt(item.getRepresentative().getFileName(), 'jpg')))
                 itemPath = item.getRepresentative().getLocation()
                 itemName = item.getFileName()
             elif isinstance(item, Class3D):
                 # use middle slice of representative as item representation
-                repPath = self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getRepresentative().getFileName(), 'jpg'))
+                repPath = self.getTopLevelPath('data', '%s_%s' % (self.outputName, pwutils.replaceBaseExt(item.getRepresentative().getFileName(), 'jpg')))
                 itemPath = '%s@%s' %(item.getRepresentative().getDim()[0], item.getFileName())
                 itemName = item.getFileName()
             elif isinstance(item, Volume):
                 # Get all slices in x,y and z directions to represent the volume
-                repPath = self.getTopLevelPath('data', item.getFileName())
+                repDir = self.getTopLevelPath('data', '%s_%s' % (self.outputName, pwutils.removeBaseExt(item.getFileName())))
+                pwutils.makePath(repDir)
                 I = emlib.Image(item.getFileName())
-                I.writeSlices(repPath, 'jpg', 'Y')
+                I.writeSlices(os.path.join(repDir,'slicesX'), 'jpg', 'X')
+                I.writeSlices(os.path.join(repDir, 'slicesY'), 'jpg', 'Y')
+                I.writeSlices(os.path.join(repDir, 'slicesZ'), 'jpg', 'Z')
+                itemDict[self.ITEM_REPRESENTATION] = repDir
             elif isinstance(item, Image):
                 # use Location as item representation
-                repPath = self.getTopLevelPath('data', '%s_%s' % (item.getIndex(), pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
+                repPath = self.getTopLevelPath('data', '%s_%s_%s' % (self.outputName, item.getIndex(), pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
                 itemPath = item.getLocation()
                 itemName = item.getFileName()
             elif isinstance(item, CTFModel):
                 # use psdFile as item representation
-                repPath = self.getTopLevelPath('data', pwutils.replaceBaseExt(item.getPsdFile(), 'jpg'))
+                repPath = self.getTopLevelPath('data', '%s_%s' % (self.outputName, pwutils.replaceBaseExt(item.getPsdFile(), 'jpg')))
                 itemPath = item.getPsdFile()
                 itemName = item.getPsdFile()
             else:
                 # in any other case look for a representation on attributes
                 for key, value in attributes:
                     if os.path.exists(str(value)):
-                        repPath = self.getTopLevelPath('data', pwutils.replaceBaseExt(str(value), 'png'))
+                        repPath = self.getTopLevelPath('data', '%s_%s' % (self.outputName, pwutils.replaceBaseExt(str(value), 'png')))
                         itemPath = str(value)
                         itemName = str(value)
                         break
