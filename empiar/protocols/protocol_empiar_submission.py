@@ -152,6 +152,7 @@ class EmpiarDepositor(EMProtocol):
     OUTPUT_SIZE = 'outputSize'
     ITEM_ID = 'item_id'
     ITEM_REPRESENTATION = 'item_representation'
+    DIR_IMAGES = 'images_representation'
 
     _outputTemplate = {
         OUTPUT_NAME: ""
@@ -183,6 +184,10 @@ class EmpiarDepositor(EMProtocol):
                       label="Submit deposition", default=True,
                       help="Set to false to avoid submitting the deposition to empiar "
                            "(it will just be created locally).")
+        #form.addParam("cwl", params.BooleanParam,
+        #              label="Create CWL", default=True,
+        #              help="Set to yes if you want to generate a CWL file.")
+
         form.addParam("resume", params.BooleanParam,
                       label="Resume upload", default=False, condition='submit',
                       help="Is this a continuation of a previous upload?")
@@ -264,14 +269,6 @@ class EmpiarDepositor(EMProtocol):
         form.addParam('piCountry', params.StringParam, label="Country", condition="not resume",
                       help="Two letter country code eg. ES. This should not be empty if not using a custom template."
                            "\nValid country codes are %s" % " ".join(self._countryCodes))
-        form.addParam('piTown', params.StringParam, label="Town or city",
-                      condition="not resume",
-                      help='PI town or city e.g. Pasadena - '
-                           'this should not be empty if not using a custom template.')
-        form.addParam('piPost', params.StringParam, label="Post or zip",
-                      condition="not resume",
-                      help='PI post or zip e.g. 91125 - '
-                           'this should not be empty if not using a custom template.')
 
         form.addSection(label="Corresponding Author")
         form.addParam('caFirstName', params.StringParam, label='First name', condition="not resume",
@@ -293,14 +290,6 @@ class EmpiarDepositor(EMProtocol):
         form.addParam('caCountry', params.StringParam, label="Country", condition="not resume",
                       help="Two letter country code e.g. ES. This should not be empty if not using a custom template."
                            "\nValid country codes are %s" % " ".join(self._countryCodes))
-        form.addParam('caTown', params.StringParam, label="Town or city",
-                      condition="not resume",
-                      help='Town or city e.g. Pasadena - '
-                           'this should not be empty if not using a custom template.')
-        form.addParam('caPost', params.StringParam, label="Post or zip",
-                      condition="not resume",
-                      help='Post or zip e.g. 91125 - '
-                           'this should not be empty if not using a custom template.')
 
     # --------------- INSERT steps functions ----------------
 
@@ -308,6 +297,8 @@ class EmpiarDepositor(EMProtocol):
         self._insertFunctionStep('createDepositionStep')
         if self.submit:
             self._insertFunctionStep('submitDepositionStep')
+        if self.cwl:
+            self._insertFunctionStep('createCWLStep')
 
     # --------------- STEPS functions -----------------------
 
@@ -315,7 +306,7 @@ class EmpiarDepositor(EMProtocol):
         # make folder in extra
         if not self.resume:
             pwutils.makePath(self._getExtraPath(self.entryTopLevel.get()))
-            pwutils.makePath(self.getTopLevelPath('data'))
+            pwutils.makePath(self.getTopLevelPath(self.DIR_IMAGES))
 
             # export workflow json
             self.exportWorkflow()
@@ -365,6 +356,10 @@ class EmpiarDepositor(EMProtocol):
         self.entryID.set(dep_result[0])
         self.uniqueDir.set(dep_result[1])
         self._store()
+
+    def createCWLStep(self):
+        # This function will create a CWL file with workflow description
+        pass
 
     # --------------- INFO functions -------------------------
 
@@ -450,7 +445,7 @@ class EmpiarDepositor(EMProtocol):
             outputs = []
             logs = list(prot.getLogPaths())
             if pwutils.exists(logs[0]):
-                logPath = self.getTopLevelPath('data', "%s_%s.log" % (prot.getObjId(), prot.getClassName()))
+                logPath = self.getTopLevelPath(self.DIR_IMAGES, "%s_%s.log" % (prot.getObjId(), prot.getClassName()))
                 pwutils.copyFile(logs[0], logPath)
                 outputs = logPath
 
@@ -582,12 +577,12 @@ class EmpiarDepositor(EMProtocol):
             # Get item representation
             if isinstance(item, Class2D):
                 # use representative as item representation
-                repPath = self.getTopLevelPath('data', '%s_%s_%s' % (self.outputName, item.getRepresentative().getIndex(), pwutils.replaceBaseExt(item.getRepresentative().getFileName(), 'jpg')))
+                repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s_%s' % (self.outputName, item.getRepresentative().getIndex(), pwutils.replaceBaseExt(item.getRepresentative().getFileName(), 'jpg')))
                 itemPath = item.getRepresentative().getLocation()
                 itemName = item.getFileName()
             elif isinstance(item, Class3D):
                 # Get all slices in x,y and z directions of representative to represent the class
-                repDir = self.getTopLevelPath('data', '%s_%s' % (self.outputName, pwutils.removeBaseExt(item.getRepresentative().getFileName())))
+                repDir = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.removeBaseExt(item.getRepresentative().getFileName())))
                 pwutils.makePath(repDir)
                 I = emlib.Image(item.getRepresentative().getFileName())
                 I.writeSlices(os.path.join(repDir,'slicesX'), 'jpg', 'X')
@@ -596,7 +591,7 @@ class EmpiarDepositor(EMProtocol):
                 itemDict[self.ITEM_REPRESENTATION] = repDir
             elif isinstance(item, Volume):
                 # Get all slices in x,y and z directions to represent the volume
-                repDir = self.getTopLevelPath('data', '%s_%s' % (self.outputName, pwutils.removeBaseExt(item.getFileName())))
+                repDir = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.removeBaseExt(item.getFileName())))
                 pwutils.makePath(repDir)
                 I = emlib.Image(item.getFileName())
                 I.writeSlices(os.path.join(repDir,'slicesX'), 'jpg', 'X')
@@ -605,19 +600,19 @@ class EmpiarDepositor(EMProtocol):
                 itemDict[self.ITEM_REPRESENTATION] = repDir
             elif isinstance(item, Image):
                 # use Location as item representation
-                repPath = self.getTopLevelPath('data', '%s_%s_%s' % (self.outputName, item.getIndex(), pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
+                repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s_%s' % (self.outputName, item.getIndex(), pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
                 itemPath = item.getLocation()
                 itemName = item.getFileName()
             elif isinstance(item, CTFModel):
                 # use psdFile as item representation
-                repPath = self.getTopLevelPath('data', '%s_%s' % (self.outputName, pwutils.replaceBaseExt(item.getPsdFile(), 'jpg')))
+                repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.replaceBaseExt(item.getPsdFile(), 'jpg')))
                 itemPath = item.getPsdFile()
                 itemName = item.getPsdFile()
             else:
                 # in any other case look for a representation on attributes
                 for key, value in attributes:
                     if os.path.exists(str(value)):
-                        repPath = self.getTopLevelPath('data', '%s_%s' % (self.outputName, pwutils.replaceBaseExt(str(value), 'png')))
+                        repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.replaceBaseExt(str(value), 'png')))
                         itemPath = str(value)
                         itemName = str(value)
                         break

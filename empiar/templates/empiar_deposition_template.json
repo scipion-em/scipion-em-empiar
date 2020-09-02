@@ -23,9 +23,7 @@
 		"first_name": "%(caFirstName)s",
 		"last_name": "%(caLastName)s",
 		"email": "%(caEmail)s",
-		"country": "%(caCountry)s",
-		"town_or_city": "%(caTown)s",
-		"post_or_zip": "%(caPost)s"
+		"country": "%(caCountry)s"
 	},
 	"principal_investigator": [
 	{
@@ -41,9 +39,7 @@
 	    "first_name": "%(piFirstName)s",
 	    "last_name": "%(piLastName)s",
 	    "email": "%(piEmail)s",
-	    "country": "%(piCountry)s",
-		"town_or_city": "%(piTown)s",
-		"post_or_zip": "%(piPost)s"
+	    "country": "%(piCountry)s"
 	}],
 	"imagesets": [
 		{
