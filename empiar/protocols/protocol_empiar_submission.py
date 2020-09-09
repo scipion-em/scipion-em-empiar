@@ -297,8 +297,8 @@ class EmpiarDepositor(EMProtocol):
         self._insertFunctionStep('createDepositionStep')
         if self.submit:
             self._insertFunctionStep('submitDepositionStep')
-        if self.cwl:
-            self._insertFunctionStep('createCWLStep')
+        #if self.cwl:
+        #    self._insertFunctionStep('createCWLStep')
 
     # --------------- STEPS functions -----------------------
 
