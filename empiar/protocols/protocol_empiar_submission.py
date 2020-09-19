@@ -241,6 +241,9 @@ class EmpiarDepositor(EMProtocol):
                            "HO - delay release of entry by one year from the date of deposition"
                       )
 
+        form.addParam('citations', params.FileParam, label='Citations bibtex', help="File containing a bibtex with citations.")
+        form.addParam('EMDBrefs', params.StringParam, label="EMDB refs", help="EMDB accesion codes, separated by comma. ")
+
         form.addSection(label='Image sets')
         self.inputSetsParam = form.addParam('inputSets', params.MultiPointerParam,
                                             label="Input set", important=True, condition="not resume",
@@ -291,6 +294,7 @@ class EmpiarDepositor(EMProtocol):
                       help="Two letter country code e.g. ES. This should not be empty if not using a custom template."
                            "\nValid country codes are %s" % " ".join(self._countryCodes))
 
+
     # --------------- INSERT steps functions ----------------
 
     def _insertAllSteps(self):
@@ -318,6 +322,7 @@ class EmpiarDepositor(EMProtocol):
             self.entryAuthorStr = "'%s', '%s'" % (entryAuthorStr[0].strip(), entryAuthorStr[1].strip())
             self.releaseDate = self.getEnumText('releaseDate')
             self.experimentType = self.experimentType.get()+1
+
             jsonStr = open(jsonTemplatePath, 'rb').read().decode('utf-8')
             jsonStr = jsonStr % self.__dict__
             depoDict = json.loads(jsonStr)
@@ -325,6 +330,27 @@ class EmpiarDepositor(EMProtocol):
             if len(imageSets) > 0:
                 print("Imagesets is not empty")
                 depoDict[self.IMGSET_KEY] = imageSets
+
+            if self.EMDBrefs.get() is not None:
+                emdbRefs = self.EMDBrefs.get().split(',')
+                for ref in emdbRefs:
+                    reference = {}
+                    reference['name'] = ref.strip()
+                    depoDict['cross_references'].append(reference)
+
+            if self.citations.get() is not None:
+                file = open(self.citations.get(), "r")
+                citationJson = json.load(file)
+                #cita = pwutils.parseBibTex(str)
+                #authors = cita['author'].split()
+                #for author in authors:
+                #    depoDict['authors'].append({'name':author.strip()})
+                #for attr in cita.keys():
+                #    depoDict[attr] = cita[attr]
+                citationJson['editors'] = []
+                depoDict['citation'][0] = citationJson
+                file.close()
+
 
             depoDict[self.SCIPION_WORKFLOW_KEY] = self.getScipionWorkflow()
             depoJson = self.getTopLevelPath(self.OUTPUT_DEPO_JSON)
@@ -620,6 +646,6 @@ class EmpiarDepositor(EMProtocol):
                 self._ih.convert(itemPath, os.path.join(self.getProject().path, repPath))
                 itemDict[self.ITEM_REPRESENTATION] = repPath
         except:
-            print("Cannot obtain item representation for %s" % itemPath)
+            print("Cannot obtain item representation for %s" % str(itemPath))
 
         return itemDict
