@@ -31,6 +31,7 @@ import pwem
 from .constants import *
 
 
+__version__ = '3.0.1'
 _references = ['Iudin2016']
 _logo = 'EMPIAR_logo.png'
 
