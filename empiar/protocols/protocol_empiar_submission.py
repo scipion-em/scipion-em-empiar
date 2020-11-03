@@ -111,6 +111,8 @@ class EmpiarDepositor(EMProtocol):
     OUTPUT_DEPO_JSON = 'deposition.json'
     OUTPUT_WORKFLOW = 'workflow.json'
 
+    ENTRY_DIR = 'data'
+
     IMGSET_KEY = 'imagesets'
     IMGSET_NAME = "name"
     IMGSET_DIR = "directory"
@@ -447,7 +449,7 @@ class EmpiarDepositor(EMProtocol):
                 else:
                     summary.append(str(output))
 
-            protDicts[prot.getObjId()]['summary'] = summary
+            protDicts[prot.getObjId()]['summary'] = ''.join(summary)
 
             # Get plugin and binary version
             # This is not possible now in Scipion in a clean way so a workaround is used from the time being
@@ -530,7 +532,7 @@ class EmpiarDepositor(EMProtocol):
         dims = imageSet.getDimensions()
         micSetDict = copy.deepcopy(self._imageSetTemplate)
         micSetDict[self.IMGSET_NAME] = imageSet.getObjName()
-        micSetDict[self.IMGSET_DIR] = "/data/%s" % imageSet.getObjName()
+        micSetDict[self.IMGSET_DIR] = "%s/%s/%s" % (self.ENTRY_DIR, self.entryTopLevel.get(), imageSet.getObjName())
         micSetDict[self.IMGSET_CAT] = "('%s', '%s')" % self.getEmpiarCategory(imageSet)
         micSetDict[self.IMGSET_HEADER_FORMAT] = "('%s', '%s')" % self.getEmpiarFormat(firstFileName)
         micSetDict[self.IMGSET_DATA_FORMAT] = "('%s', '%s')" % self.getEmpiarFormat(firstFileName)
@@ -539,7 +541,7 @@ class EmpiarDepositor(EMProtocol):
         micSetDict[self.IMGSET_VOXEL_TYPE] = "('%s', '%s')" % self.getVoxelType(firstImg)
         micSetDict[self.IMGSET_PIXEL_WIDTH] = imageSet.getSamplingRate()
         micSetDict[self.IMGSET_PIXEL_HEIGHT] = imageSet.getSamplingRate()
-        micSetDict[self.IMGSET_DETAILS] = "/data/%s" % os.path.basename(self.workflowPath.get())
+        micSetDict[self.IMGSET_DETAILS] = "%s/%s/%s" % (self.ENTRY_DIR, self.entryTopLevel.get(), os.path.basename(self.workflowPath.get()))
         micSetDict[self.IMGSET_WIDTH] = dims[0]
         micSetDict[self.IMGSET_HEIGHT] = dims[1]
         return micSetDict
@@ -558,7 +560,7 @@ class EmpiarDepositor(EMProtocol):
 
     def getScipionWorkflow(self):
         workflowDict = copy.deepcopy(self._workflowTemplate)
-        workflowDict[self.SCIPION_WORKFLOW] = "/data/%s" % os.path.basename(self.workflowPath.get())
+        workflowDict[self.SCIPION_WORKFLOW] = "%s/%s/%s" % (self.ENTRY_DIR, self.entryTopLevel.get(), os.path.basename(self.workflowPath.get()))
         return workflowDict
 
     def getOutputDict(self, output):
