@@ -369,12 +369,11 @@ class EmpiarDepositor(EMProtocol):
         self.validateDepoJson(depoDict)
 
     def submitDepositionStep(self):
-        depositorCall = '%(resume)s %(token)s %(depoJson)s %(ascp)s %(devel)s %(data)s -o'
+        depositorCall = '%(resume)s %(token)s %(depoJson)s %(ascp)s %(data)s -o'
         args = {'resume': '-r %s %s' % (self.entryID, self.uniqueDir) if self.resume else "",
                 'token': os.environ[EMPIAR_TOKEN],
                 'depoJson': os.path.abspath(self.depositionJsonPath.get()),
                 'ascp': '-a %s' % os.environ[ASCP_PATH],
-                'devel': '-d',
                 'data': os.path.abspath(self.getTopLevelPath())
                 }
 
