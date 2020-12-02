@@ -30,7 +30,7 @@ import copy
 
 import jsonschema
 from empiar_depositor import empiar_depositor
-from empiar.constants import (ASPERA_PASS, EMPIAR_TOKEN,
+from empiar.constants import (ASPERA_PASS, EMPIAR_TOKEN, EMPIAR_DEVEL_MODE,
                               ASCP_PATH, DEPOSITION_SCHEMA,
                               DEPOSITION_TEMPLATE)
 from pwem import emlib
@@ -369,11 +369,12 @@ class EmpiarDepositor(EMProtocol):
         self.validateDepoJson(depoDict)
 
     def submitDepositionStep(self):
-        depositorCall = '%(resume)s %(token)s %(depoJson)s %(ascp)s %(data)s -o'
+        depositorCall = '%(resume)s %(token)s %(depoJson)s %(ascp)s %(devel)s %(data)s -o'
         args = {'resume': '-r %s %s' % (self.entryID, self.uniqueDir) if self.resume else "",
                 'token': os.environ[EMPIAR_TOKEN],
                 'depoJson': os.path.abspath(self.depositionJsonPath.get()),
                 'ascp': '-a %s' % os.environ[ASCP_PATH],
+                'devel': '-d' if (EMPIAR_DEVEL_MODE in os.environ and os.environ[EMPIAR_DEVEL_MODE] == '1') else '',
                 'data': os.path.abspath(self.getTopLevelPath())
                 }
 
