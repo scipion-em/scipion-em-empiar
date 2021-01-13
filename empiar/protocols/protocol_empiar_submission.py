@@ -27,6 +27,8 @@
 import os
 import json
 import copy
+import requests
+import re
 
 import jsonschema
 from empiar_depositor import empiar_depositor
@@ -39,6 +41,7 @@ from pwem.objects import Class2D, Class3D, Image, CTFModel, Volume, Micrograph, 
 from pyworkflow.protocol import params
 from pyworkflow.object import String, Set
 import pyworkflow.utils as pwutils
+from pyworkflow.project import config
 
 class EmpiarMappingError(Exception):
     """To raise it when we can't map Scipion data to EMPIAR data,
@@ -108,6 +111,8 @@ class EmpiarDepositor(EMProtocol):
         emlib.DT_FLOAT: 'T7'    # '32 BIT FLOAT'
     }
 
+    _grantOwnershipBasedOn = ['username', 'email', 'ORCiD']
+
     OUTPUT_DEPO_JSON = 'deposition.json'
     OUTPUT_WORKFLOW = 'workflow.json'
 
@@ -173,51 +178,40 @@ class EmpiarDepositor(EMProtocol):
         self.entryAuthorStr = ""
         self.workflowPath = String()
         self.depositionJsonPath = String()
+        self.entryID = String()
+        self.uniqueDir = String()
 
     # --------------- DEFINE param functions ---------------
 
     def _defineParams(self, form):
         form.addSection(label='Entry')
-        # form.addParam('workflowJson', params.PathParam,
-        #               label='Workflow json', allowsNull=True,
-        #               help='Path to the workflow json (obtained using the export option (right click on'
-        #                     'one of your selected protocols). Will generate json of all protocols if not provided.')
-        form.addParam("submit", params.BooleanParam,
-                      label="Submit deposition", default=True,
-                      help="Set to false to avoid submitting the deposition to empiar "
+        form.addParam("deposit", params.BooleanParam,
+                      label="Make deposition", default=True,
+                      help="Set to false to avoid performing a deposition to EMPIAR "
                            "(it will just be created locally).")
         #form.addParam("cwl", params.BooleanParam,
         #              label="Create CWL", default=True,
         #              help="Set to yes if you want to generate a CWL file.")
-
         form.addParam("resume", params.BooleanParam,
-                      label="Resume upload", default=False, condition='submit',
-                      help="Is this a continuation of a previous upload?")
-        form.addParam('entryID', params.StringParam,
-                      label="Entry ID", condition="resume", important=True,
-                      help="EMPIAR entry ID - use if you wanna resume an upload")
-        form.addParam('uniqueDir', params.StringParam, important=True,
-                      label="Unique directory", condition="resume",
-                      help="EMPIAR directory assigned to this deposition ID")
-        form.addParam('depositionJson', params.PathParam, important=True,
-                      label="Deposition json", condition="resume",
-                      help="Path to the json file of the deposition we're about to resume.")
-
-        form.addParam('jsonTemplate', params.PathParam, condition='not resume',
+                      label="Update existing entry", default=False, condition='deposit',
+                      help="Is this a continuation of a previous deposition?")
+        form.addParam("submit", params.BooleanParam,
+                      label="Submit", default=False, condition='deposit',
+                      help="Is this the last entry update? If so, the EMPIAR entry will be submitted and no future changes can be done (except for providing the EMDB codes related with the EMPIAR entry).")
+        form.addParam('jsonTemplate', params.PathParam,
                       label="Custom json (Optional)", allowsNull=True,
                       help="Path to a customized template of the EMPIAR submission json, if you don't want to use the "
                            "default one.")
         form.addParam('entryTopLevel', params.StringParam, label="Top level folder",
                       validators=[params.NonEmpty], important=True,
-                      help="How you want to name the top level folder of the empiar entry. \n This should be a "
-                           "simple and descriptive name without special characters (:,?, spaces, etc). \n"
-                           "If you're resuming an upload, this should be the same name you used to create the folder.")
-        form.addParam('entryTitle', params.StringParam, label="Entry title", important=True, condition="not resume",
+                      help="How you want to name the top level folder of the EMPIAR entry. \n This should be a "
+                           "simple and descriptive name without special characters (:,?, spaces, etc). ")
+        form.addParam('entryTitle', params.StringParam, label="Entry title", important=True,
                       help="EMPIAR entry title. This should not be empty if not using a custom template.")
-        form.addParam('entryAuthor', params.StringParam, label="Entry author", important=True, condition="not resume",
+        form.addParam('entryAuthor', params.StringParam, label="Entry author", important=True,
                       help='EMPIAR entry author in the form "LastName, Initials" e.g. Smith, JW\n'
                            'This should not be empty if not using a custom template.')
-        form.addParam('experimentType', params.EnumParam, label="Experiment type", condition="not resume",
+        form.addParam('experimentType', params.EnumParam, label="Experiment type",
                       choices=self._experimentTypes, default=2, important=True,
                       help="EMPIAR experiment type:\n"
                            "1 - image data collected using soft x-ray tomography\n"
@@ -233,7 +227,7 @@ class EmpiarDepositor(EMProtocol):
                            "7 - correlative light-electron microscopy\n"
                            "8 - correlative light X-ray microscopy\n"
                            "9 - microcrystal electron diffraction")
-        form.addParam('releaseDate', params.EnumParam, label="Release date", condition="not resume",
+        form.addParam('releaseDate', params.EnumParam, label="Release date",
                       choices=self._releaseDateTypes, default=0, important=True,
                       help="EMPIAR release date:\n"
                            "Options for releasing entry to the public: \n"
@@ -244,11 +238,10 @@ class EmpiarDepositor(EMProtocol):
                       )
 
         form.addParam('citations', params.FileParam, label='Citations bibtex', help="File containing a bibtex with citations.")
-        form.addParam('EMDBrefs', params.StringParam, label="EMDB refs", help="EMDB accesion codes, separated by comma. ")
 
         form.addSection(label='Image sets')
         self.inputSetsParam = form.addParam('inputSets', params.MultiPointerParam,
-                                            label="Input set", important=True, condition="not resume",
+                                            label="Input set", important=True,
                                             pointerClass=','.join(self._imageSetCategories.keys()), minNumObjects=1,
                                             help='Select one set (of micrographs, particles,'
                                                  ' volumes, etc.) to be deposited to EMPIAR.')
@@ -257,125 +250,131 @@ class EmpiarDepositor(EMProtocol):
         #               help='Image set to be uploaded to EMPIAR\n')
 
         form.addSection(label="Principal investigator")
-        form.addParam('piFirstName', params.StringParam, label='First name', condition="not resume",
+        form.addParam('piFirstName', params.StringParam, label='First name',
                       help="PI first name e.g. Juan- this should not be empty if not using a custom template.")
-        form.addParam('piLastName', params.StringParam, label='Last name', condition="not resume",
+        form.addParam('piLastName', params.StringParam, label='Last name',
                       help='PI Last name e.g. Perez - this should not be empty if not using a custom template.')
-        form.addParam('piOrg', params.StringParam, label='Organization', condition="not resume",
+        form.addParam('piOrg', params.StringParam, label='Organization',
                       help="The name of the organization e.g. Biocomputing Unit, CNB-CSIC \n"
                            "This should not be empty if not using a custom template.")
-        form.addParam('piEmail', params.StringParam, label="Email", condition="not resume",
+        form.addParam('piEmail', params.StringParam, label="Email",
                       help='PI Email address e.g. jperez@org.es - '
                            'this should not be empty if not using a custom template.')
-        form.addParam('piPost', params.StringParam, label="Post or zip", condition="not resume",
+        form.addParam('piPost', params.StringParam, label="Post or zip",
                       help="Post or ZIP code. This should not be empty if not using a custom template.")
-        form.addParam('piTown', params.StringParam, label="Town or city", condition="not resume",
+        form.addParam('piTown', params.StringParam, label="Town or city",
                       help="Town or city name. This should not be empty if not using a custom template.")
-        form.addParam('piCountry', params.StringParam, label="Country", condition="not resume",
+        form.addParam('piCountry', params.StringParam, label="Country",
                       help="Two letter country code eg. ES. This should not be empty if not using a custom template."
                            "\nValid country codes are %s" % " ".join(self._countryCodes))
 
         form.addSection(label="Corresponding Author")
-        form.addParam('caFirstName', params.StringParam, label='First name', condition="not resume",
+        form.addParam('caFirstName', params.StringParam, label='First name',
                       help="Corresponding author's first name e.g. Juan. "
                            "This should not be empty if not using a custom template. ")
-        form.addParam('caLastName', params.StringParam, label='Last name', condition="not resume",
+        form.addParam('caLastName', params.StringParam, label='Last name',
                       help="Corresponding author's Last name e.g. Perez. "
                            "This should not be empty if not using a custom template.")
-        form.addParam('caOrg', params.StringParam, label='Organization', condition="not resume",
+        form.addParam('caOrg', params.StringParam, label='Organization',
                       help="The name of the organization e.g. Biocomputing Unit, CNB-CSIC."
                            "This should not be empty if not using a custom template.")
-        form.addParam('caEmail', params.StringParam, label="Email", condition="not resume",
+        form.addParam('caEmail', params.StringParam, label="Email",
                       help="Corresponding author's Email address e.g. jperez@org.es. "
                            "This should not be empty if not using a custom template.")
-        form.addParam('caPost', params.StringParam, label="Post or zip", condition="not resume",
+        form.addParam('caPost', params.StringParam, label="Post or zip",
                       help="Post or ZIP code. This should not be empty if not using a custom template.")
-        form.addParam('caTown', params.StringParam, label="Town or city", condition="not resume",
+        form.addParam('caTown', params.StringParam, label="Town or city",
                       help="Town or city name. This should not be empty if not using a custom template.")
-        form.addParam('caCountry', params.StringParam, label="Country", condition="not resume",
+        form.addParam('caCountry', params.StringParam, label="Country",
                       help="Two letter country code e.g. ES. This should not be empty if not using a custom template."
                            "\nValid country codes are %s" % " ".join(self._countryCodes))
 
+        form.addSection(label="Transfer entry ownership")
+        form.addParam("ownershipBasedOn", params.EnumParam, label="Based on",
+                      choices=self._grantOwnershipBasedOn, default=0, important=True,
+                      help="You may want to transfer EMPIAR entry ownership to other user. Here you specify if you are providing the user username, email or ORCiD.")
+        form.addParam("newOwnerId", params.StringParam, label="User ID", important=True,
+                      help="The user username, email or ORCiD.")
+
+        form.addSection(label="EMDB codes (post-submission request)")
+        form.addParam('EMDBrefs', params.StringParam, label="EMDB codes", help="If you want to request to EMPIAR annotators to update the EMPIAR entry (already submitted) with the EMDB accesion codes, you can provide them here separated by comma.")
 
     # --------------- INSERT steps functions ----------------
 
     def _insertAllSteps(self):
-        self._insertFunctionStep('createDepositionStep')
-        if self.submit:
-            self._insertFunctionStep('submitDepositionStep')
-        #if self.cwl:
-        #    self._insertFunctionStep('createCWLStep')
+        if self.EMDBrefs != '':
+            self._insertFunctionStep('provideEMDBcodesStep')
+        else:
+            self._insertFunctionStep('createDepositionStep')
+            if self.deposit:
+                self._insertFunctionStep('makeDepositionStep')
+            #if self.cwl:
+            #    self._insertFunctionStep('createCWLStep')
 
     # --------------- STEPS functions -----------------------
 
     def createDepositionStep(self):
         # make folder in extra
-        if not self.resume:
-            pwutils.makePath(self._getExtraPath(self.entryTopLevel.get()))
-            pwutils.makePath(self.getTopLevelPath(self.DIR_IMAGES))
+        pwutils.makePath(self._getExtraPath(self.entryTopLevel.get()))
+        pwutils.makePath(self.getTopLevelPath(self.DIR_IMAGES))
 
-            # export workflow json
-            self.exportWorkflow()
+        # export workflow json
+        self.exportWorkflow()
 
-            # create deposition json
-            jsonTemplatePath = self.jsonTemplate.get('').strip() or DEPOSITION_TEMPLATE
+        # create deposition json
+        jsonTemplatePath = self.jsonTemplate.get('').strip() or DEPOSITION_TEMPLATE
 
-            entryAuthorStr = self.entryAuthor.get().split(',')
-            self.entryAuthorStr = "'%s', '%s'" % (entryAuthorStr[0].strip(), entryAuthorStr[1].strip())
-            self.releaseDate = self.getEnumText('releaseDate')
-            self.experimentType = self.experimentType.get()+1
+        entryAuthorStr = self.entryAuthor.get().split(',')
+        self.entryAuthorStr = "'%s', '%s'" % (entryAuthorStr[0].strip(), entryAuthorStr[1].strip())
+        self.releaseDate = self.getEnumText('releaseDate')
+        self.experimentType = self.experimentType.get()+1
 
-            jsonStr = open(jsonTemplatePath, 'rb').read().decode('utf-8')
-            jsonStr = jsonStr % self.__dict__
-            depoDict = json.loads(jsonStr)
-            imageSets = self.processImageSets()
-            if len(imageSets) > 0:
-                print("Imagesets is not empty")
-                depoDict[self.IMGSET_KEY] = imageSets
+        jsonStr = open(jsonTemplatePath, 'rb').read().decode('utf-8')
+        jsonStr = jsonStr % self.__dict__
+        depoDict = json.loads(jsonStr)
+        imageSets = self.processImageSets()
+        if len(imageSets) > 0:
+            print("Imagesets is not empty")
+            depoDict[self.IMGSET_KEY] = imageSets
 
-            if self.EMDBrefs.get() is not None:
-                emdbRefs = self.EMDBrefs.get().split(',')
-                for ref in emdbRefs:
-                    reference = {}
-                    reference['name'] = ref.strip()
-                    depoDict['cross_references'].append(reference)
-
-            if self.citations.get() is not None:
-                file = open(self.citations.get(), "r")
-                citationJson = json.load(file)
-                #cita = pwutils.parseBibTex(str)
-                #authors = cita['author'].split()
-                #for author in authors:
-                #    depoDict['authors'].append({'name':author.strip()})
-                #for attr in cita.keys():
-                #    depoDict[attr] = cita[attr]
-                citationJson['editors'] = []
-                depoDict['citation'][0] = citationJson
-                file.close()
+        if self.citations.get() is not None:
+            file = open(self.citations.get(), "r")
+            citationJson = json.load(file)
+            #cita = pwutils.parseBibTex(str)
+            #authors = cita['author'].split()
+            #for author in authors:
+            #    depoDict['authors'].append({'name':author.strip()})
+            #for attr in cita.keys():
+            #    depoDict[attr] = cita[attr]
+            citationJson['editors'] = []
+            depoDict['citation'][0] = citationJson
+            file.close()
 
 
-            depoDict[self.SCIPION_WORKFLOW_KEY] = self.getScipionWorkflow()
-            depoJson = self.getTopLevelPath(self.OUTPUT_DEPO_JSON)
-            with open(depoJson, 'w') as f:
-                # f.write(jsonStr.encode('utf-8'))
-                json.dump(depoDict, f, indent=4)
-            # self.depositionJsonPath = depoJson
-            self.depositionJsonPath.set(depoJson)
-        else:
-            self.depositionJsonPath.set(self.depositionJson.get())
-            with open(self.depositionJson.get()) as f:
-                depoDict = json.load(f)
+        depoDict[self.SCIPION_WORKFLOW_KEY] = self.getScipionWorkflow()
+        depoJson = self.getTopLevelPath(self.OUTPUT_DEPO_JSON)
+        with open(depoJson, 'w') as f:
+            # f.write(jsonStr.encode('utf-8'))
+            json.dump(depoDict, f, indent=4)
+        # self.depositionJsonPath = depoJson
+        self.depositionJsonPath.set(depoJson)
+
         self._store()
         self.validateDepoJson(depoDict)
 
-    def submitDepositionStep(self):
-        depositorCall = '%(resume)s %(token)s %(depoJson)s %(ascp)s %(devel)s %(data)s -o'
+    def makeDepositionStep(self):
+        depositorCall = '%(resume)s %(token)s %(depoJson)s %(ascp)s %(devel)s %(data)s -o %(submit)s %(grant)s'
+        grantCall = "%(basedOn)s %(userID)s:1"
+        grantArgs = {'basedOn': '-ge' if self.getEnumText('ownershipBasedOn') == 'email' else '-gu',
+                     'userID': self.newOwnerId}
         args = {'resume': '-r %s %s' % (self.entryID, self.uniqueDir) if self.resume else "",
                 'token': os.environ[EMPIAR_TOKEN],
                 'depoJson': os.path.abspath(self.depositionJsonPath.get()),
                 'ascp': '-a %s' % os.environ[ASCP_PATH],
                 'devel': '-d' if (EMPIAR_DEVEL_MODE in os.environ and os.environ[EMPIAR_DEVEL_MODE] == '1') else '',
-                'data': os.path.abspath(self.getTopLevelPath())
+                'data': os.path.abspath(self.getTopLevelPath()),
+                'submit': '' if self.submit else '-s',
+                'grant': grantCall % grantArgs if self.newOwnerId != '' else ''
                 }
 
         depositorCall = depositorCall % args
@@ -389,11 +388,24 @@ class EmpiarDepositor(EMProtocol):
         # This function will create a CWL file with workflow description
         pass
 
+    def provideEMDBcodesStep(self):
+        # This function requests to EMPIAR annotators a post-submission change for provide the EMDB entry/ies code/s related with the EMPIAR entry
+        requests.packages.urllib3.disable_warnings()
+        url = 'https://wwwdev.ebi.ac.uk/pdbe/emdb/external_test/master/empiar/deposition/api/v1/request_changes/' if (EMPIAR_DEVEL_MODE in os.environ and os.environ[EMPIAR_DEVEL_MODE] == '1') else 'https://www.ebi.ac.uk/pdbe/emdb/empiar/deposition/api/v1/request_changes/'
+        data = {'entry_id': str(self.entryID), 'msg': 'I would like to update this entry with the EMDB code/s: ' + self.EMDBrefs.get()}
+        headers = {'Content-Type': 'application/json', 'Authorization': 'Token ' + os.environ[EMPIAR_TOKEN]}
+        response = requests.post(url, data=json.dumps(data), headers=headers, verify=False)
+        if response.status_code == 200:
+            print('The request to EMPIAR annotators for adding the EMDB entry/ies code/s was sent successfully')
+        else:
+            print('The request to EMPIAR annotators for adding the EMDB entry/ies code/s was not successful')
+
+
     # --------------- INFO functions -------------------------
 
     def _validate(self):
         errors = []
-        if self.submit:
+        if self.deposit:
             if EMPIAR_TOKEN not in os.environ:
                 errors.append("Environment variable %s not set. Please set your %s in ~/.config/scipion/scipion.conf "
                               "or in your environment." % (EMPIAR_TOKEN, EMPIAR_TOKEN))
@@ -430,6 +442,24 @@ class EmpiarDepositor(EMProtocol):
         workflowJsonPath = os.path.join(project.path, self.getTopLevelPath(self.OUTPUT_WORKFLOW))
         protDicts = project.getProtocolsDict(workflowProts)
 
+        # labels and colors
+        settingsPath = os.path.join(project.path, project.settingsPath)
+        settings = config.ProjectSettings.load(settingsPath)
+        labels = settings.getLabels()
+        labelsDict = {}
+        for label in labels:
+            labelInfo = label._values
+            labelsDict[labelInfo['name']] = labelInfo['color']
+
+        protsConfig = settings.getNodes()
+        protsLabelsDict = {}
+        for protConfig in protsConfig:
+            protConfigInfo = protConfig._values
+            if len(protConfigInfo['labels']) > 0:
+                protsLabelsDict[protConfigInfo['id']] = []
+                for label in protConfigInfo['labels']:
+                    protsLabelsDict[protConfigInfo['id']].append(label)
+
         # Add extra info to protocosDict
         for prot in workflowProts:
 
@@ -451,24 +481,6 @@ class EmpiarDepositor(EMProtocol):
 
             protDicts[prot.getObjId()]['summary'] = ''.join(summary)
 
-            # Get plugin and binary version
-            # This is not possible now in Scipion in a clean way so a workaround is used from the time being
-            # We know only the module name of a certain protocol, from that we can get the pip package name (not very clean way) and get the installed binaries
-            # (which is not exactly bin and plugin versions used at execution time cause this can have changed).
-            # To get exact versions they will have to be saved on protocols object at execution time.
-
-            #protDicts[prot.getObjId()]['plugin'] = prot.getClassPackageName()
-            #plugin_name = prot.getClassPackageName()
-            #if plugin_name == 'xmipp3':
-            #    plugin_pip_package = 'scipion-em-xmipp';
-            #elif plugin_name == 'scipion':
-            #    plugin_pip_package = '';
-            #else:
-            #    plugin_pip_package = 'scipion-em-%s' % plugin_name
-
-            #pluginInfo = PluginInfo(pipName=plugin_pip_package, remote=False)
-            #print (pluginInfo.printBinInfoStr())
-
             # Get log (stdout)
             outputs = []
             logs = list(prot.getLogPaths())
@@ -478,6 +490,22 @@ class EmpiarDepositor(EMProtocol):
                 outputs = logPath
 
             protDicts[prot.getObjId()]['log'] =  outputs
+
+            # labels
+            if prot.getObjId() in protsLabelsDict.keys():
+                protDicts[prot.getObjId()]['label'] = protsLabelsDict[prot.getObjId()]
+                protDicts[prot.getObjId()]['labelColor'] = []
+                for label in protDicts[prot.getObjId()]['label']:
+                    protDicts[prot.getObjId()]['labelColor'].append(labelsDict[label])
+
+            # Get plugin and binary version
+            protDicts[prot.getObjId()]['plugin'] = prot.getClassPackageName()
+            if len(outputs) > 0:
+                with open(logPath) as log:
+                    for line in log:
+                        if re.search(r'plugin v', line):
+                            version = line.split(':')[1].replace(' ', '').replace('\n', '')
+                            protDicts[prot.getObjId()]['pluginVersion'] = version
 
         for inputSetPointer in self.inputSets:
             inputSet = inputSetPointer.get()
