@@ -19,7 +19,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='scipion-em-empiar',
-    version='3.0.1',
+    version='3.0.2',
     description='A Scipion plugin to make depositions to EMPIAR',
     long_description=long_description,
     url='https://github.com/scipion-em/scipion-em-empiar',
