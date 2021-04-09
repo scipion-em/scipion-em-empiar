@@ -35,13 +35,15 @@ from empiar_depositor import empiar_depositor
 from empiar.constants import (ASPERA_PASS, EMPIAR_TOKEN, EMPIAR_DEVEL_MODE,
                               ASCP_PATH, DEPOSITION_SCHEMA,
                               DEPOSITION_TEMPLATE)
-from pwem import emlib
+from pwem import emlib, Domain
 from pwem.protocols import EMProtocol
-from pwem.objects import Class2D, Class3D, Image, CTFModel, Volume, Micrograph, Movie, Particle, Coordinate
+from pwem.objects import Class2D, Class3D, Image, CTFModel, Volume, Micrograph, Movie, Particle, SetOfCoordinates
 from pyworkflow.protocol import params
 from pyworkflow.object import String, Set
 import pyworkflow.utils as pwutils
 from pyworkflow.project import config
+from PIL import Image as ImagePIL
+from PIL import ImageDraw
 
 class EmpiarMappingError(Exception):
     """To raise it when we can't map Scipion data to EMPIAR data,
@@ -51,7 +53,7 @@ class EmpiarMappingError(Exception):
 
 class EmpiarDepositor(EMProtocol):
     """
-    Deposit image sets to empiar
+    Deposits image sets to EMPIAR.
     """
     _label = 'Empiar deposition'
     _ih = emlib.image.ImageHandler()
@@ -251,15 +253,17 @@ class EmpiarDepositor(EMProtocol):
 
         form.addSection(label="Principal investigator")
         form.addParam('piFirstName', params.StringParam, label='First name',
-                      help="PI first name e.g. Juan- this should not be empty if not using a custom template.")
+                      help="PI first name e.g. Juan. "
+                           "This should not be empty if not using a custom template.")
         form.addParam('piLastName', params.StringParam, label='Last name',
-                      help='PI Last name e.g. Perez - this should not be empty if not using a custom template.')
+                      help="PI Last name e.g. Perez. "
+                           "This should not be empty if not using a custom template.")
         form.addParam('piOrg', params.StringParam, label='Organization',
-                      help="The name of the organization e.g. Biocomputing Unit, CNB-CSIC \n"
+                      help="The name of the organization e.g. Biocomputing Unit, CNB-CSIC. "
                            "This should not be empty if not using a custom template.")
         form.addParam('piEmail', params.StringParam, label="Email",
-                      help='PI Email address e.g. jperez@org.es - '
-                           'this should not be empty if not using a custom template.')
+                      help="PI Email address e.g. jperez@org.es. "
+                           "This should not be empty if not using a custom template.")
         form.addParam('piPost', params.StringParam, label="Post or zip",
                       help="Post or ZIP code. This should not be empty if not using a custom template.")
         form.addParam('piTown', params.StringParam, label="Town or city",
@@ -276,7 +280,7 @@ class EmpiarDepositor(EMProtocol):
                       help="Corresponding author's Last name e.g. Perez. "
                            "This should not be empty if not using a custom template.")
         form.addParam('caOrg', params.StringParam, label='Organization',
-                      help="The name of the organization e.g. Biocomputing Unit, CNB-CSIC."
+                      help="The name of the organization e.g. Biocomputing Unit, CNB-CSIC. "
                            "This should not be empty if not using a custom template.")
         form.addParam('caEmail', params.StringParam, label="Email",
                       help="Corresponding author's Email address e.g. jperez@org.es. "
@@ -462,7 +466,6 @@ class EmpiarDepositor(EMProtocol):
 
         # Add extra info to protocosDict
         for prot in workflowProts:
-
             # Get summary and add input and output information
             summary = prot.summary()
             for a, input in prot.iterInputAttributes():
@@ -598,17 +601,53 @@ class EmpiarDepositor(EMProtocol):
         outputDict[self.OUTPUT_TYPE] = output.getClassName()
 
         items = []
+
         # If output is a Set get a list with all items
         if isinstance(output, Set):
             outputDict[self.OUTPUT_SIZE] = output.getSize()
             count = 0
-            for item in output.iterItems():
-                itemDict = self.getItemDict(item)
-                items.append(itemDict)
-                count += 1
-                # In some types get only a limited number of items
-                if (isinstance(item, Micrograph) or isinstance(item, Movie) or isinstance(item, CTFModel)) and count == 3: break;
-                if (isinstance(item, Particle) or isinstance(item, Coordinate)) and count == 15: break;
+            if isinstance(output, SetOfCoordinates):
+                coordinatesDict = {}
+                for micrograph in output.getMicrographs(): # get the first three micrographs
+                    count += 1
+                    # apply a low pass filter
+                    args = " -i %s -o %s --fourier low_pass %f" % (micrograph.getLocation()[1], self._getTmpPath(os.path.basename(micrograph.getFileName())), 0.05)
+                    getEnviron = Domain.importFromPlugin('xmipp3', 'Plugin', doRaise=True).getEnviron
+                    self.runJob('xmipp_transform_filter', args, env=getEnviron())
+                    # save jpg
+                    repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.replaceBaseExt(micrograph.getFileName(), 'jpg')))
+                    self._ih.convert(self._getTmpPath(os.path.basename(micrograph.getFileName())), os.path.join(self.getProject().path, repPath))
+                    coordinatesDict[micrograph.getMicName()] = {'path': repPath, 'Xdim': micrograph.getXDim(), 'Ydim': micrograph.getYDim()}
+
+                    items.append({self.ITEM_REPRESENTATION: repPath})
+                    if count == 3: break;
+
+                for coordinate in output: # for each micrograph, get its coordinates
+                    if coordinate.getMicName() in coordinatesDict:
+                        coordinatesDict[coordinate.getMicName()].setdefault('coords', []).append([coordinate.getX(), coordinate.getY()])
+
+                for micrograph, values in coordinatesDict.items(): # draw coordinates in micrographs jpgs
+                    if 'coords' in values:
+                        image = ImagePIL.open(values['path']).convert('RGB')
+                        W_mic = values['Xdim']
+                        H_mic = values['Ydim']
+                        W_jpg, H_jpg = image.size
+                        draw = ImageDraw.Draw(image)
+                        r = W_jpg / 256
+                        for coord in values['coords']:
+                            x = coord[0] * (W_jpg / W_mic)
+                            y = coord[1] * (H_jpg / H_mic)
+                            draw.ellipse((x - r, y - r, x + r, y + r), fill=(0, 255, 0))
+                        image.save(values['path'], quality=95)
+
+            else:
+                for item in output.iterItems():
+                    itemDict = self.getItemDict(item)
+                    items.append(itemDict)
+                    count += 1
+                    # In some types get only a limited number of items
+                    if (isinstance(item, Micrograph) or isinstance(item, Movie) or isinstance(item, CTFModel)) and count == 3: break;
+                    if isinstance(item, Particle) and count == 15: break;
 
         # If it is a single object then only one item is present
         else:
@@ -628,14 +667,24 @@ class EmpiarDepositor(EMProtocol):
 
         itemDict[self.ITEM_ID] = item.getObjId()
 
-        itemName = ''
         try:
             # Get item representation
             if isinstance(item, Class2D):
                 # use representative as item representation
                 repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s_%s' % (self.outputName, item.getRepresentative().getIndex(), pwutils.replaceBaseExt(item.getRepresentative().getFileName(), 'jpg')))
                 itemPath = item.getRepresentative().getLocation()
-                itemName = item.getFileName()
+                self._ih.convert(itemPath, os.path.join(self.getProject().path, repPath))
+
+                if '_size' in itemDict:  # write number of particles over the class
+                    text = itemDict['_size'] + " ptcls"
+                    image = ImagePIL.open(repPath).convert('RGB')
+                    W, H = image.size
+                    draw = ImageDraw.Draw(image)
+                    draw.text((5, H - 15), text, fill=(0, 255, 0))
+                    image.save(repPath, quality=95)
+
+                itemDict[self.ITEM_REPRESENTATION] = repPath
+
             elif isinstance(item, Class3D):
                 # Get all slices in x,y and z directions of representative to represent the class
                 repDir = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.removeBaseExt(item.getRepresentative().getFileName())))
@@ -644,7 +693,17 @@ class EmpiarDepositor(EMProtocol):
                 I.writeSlices(os.path.join(repDir,'slicesX'), 'jpg', 'X')
                 I.writeSlices(os.path.join(repDir, 'slicesY'), 'jpg', 'Y')
                 I.writeSlices(os.path.join(repDir, 'slicesZ'), 'jpg', 'Z')
+
+                if '_size' in itemDict: # write number of particles over a class image
+                    text = itemDict['_size'] + " ptcls"
+                    image = ImagePIL.open(os.path.join(repDir, 'slicesX_0000.jpg')).convert('RGB')
+                    W, H = image.size
+                    draw = ImageDraw.Draw(image)
+                    draw.text((5, H - 15), text, fill=(0, 255, 0))
+                    image.save(os.path.join(repDir, 'slicesX_0000.jpg'), quality=95)
+
                 itemDict[self.ITEM_REPRESENTATION] = repDir
+
             elif isinstance(item, Volume):
                 # Get all slices in x,y and z directions to represent the volume
                 repDir = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.removeBaseExt(item.getFileName())))
@@ -653,29 +712,45 @@ class EmpiarDepositor(EMProtocol):
                 I.writeSlices(os.path.join(repDir,'slicesX'), 'jpg', 'X')
                 I.writeSlices(os.path.join(repDir, 'slicesY'), 'jpg', 'Y')
                 I.writeSlices(os.path.join(repDir, 'slicesZ'), 'jpg', 'Z')
+
                 itemDict[self.ITEM_REPRESENTATION] = repDir
+
             elif isinstance(item, Image):
                 # use Location as item representation
                 repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s_%s' % (self.outputName, item.getIndex(), pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
                 itemPath = item.getLocation()
-                itemName = item.getFileName()
+                # apply a low pass filter
+                args = " -i %s -o %s --fourier low_pass %f" % (itemPath[1], self._getTmpPath(os.path.basename(item.getFileName())), 0.05)
+                getEnviron = Domain.importFromPlugin('xmipp3', 'Plugin', doRaise=True).getEnviron
+                self.runJob('xmipp_transform_filter', args, env=getEnviron())
+
+                self._ih.convert(self._getTmpPath(os.path.basename(item.getFileName())), os.path.join(self.getProject().path, repPath))
+                itemDict[self.ITEM_REPRESENTATION] = repPath
+
             elif isinstance(item, CTFModel):
-                # use psdFile as item representation
-                repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.replaceBaseExt(item.getPsdFile(), 'jpg')))
-                itemPath = item.getPsdFile()
-                itemName = item.getPsdFile()
+                # if exists use ctfmodel_quadrant as item representation, in other case use psdFile
+                if item.hasAttribute('_xmipp_ctfmodel_quadrant'):
+                    repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.replaceBaseExt(str(item._xmipp_ctfmodel_quadrant), 'jpg')))
+                    itemPath = str(item._xmipp_ctfmodel_quadrant)
+
+                else:
+                    repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.replaceBaseExt(item.getPsdFile(), 'jpg')))
+                    itemPath = item.getPsdFile()
+
+                self._ih.convert(itemPath, os.path.join(self.getProject().path, repPath))
+                itemDict[self.ITEM_REPRESENTATION] = repPath
+
             else:
                 # in any other case look for a representation on attributes
                 for key, value in attributes:
                     if os.path.exists(str(value)):
                         repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.replaceBaseExt(str(value), 'png')))
                         itemPath = str(value)
-                        itemName = str(value)
+                        self._ih.convert(itemPath, os.path.join(self.getProject().path, repPath))
+                        itemDict[self.ITEM_REPRESENTATION] = repPath
                         break
-            if itemName:
-                self._ih.convert(itemPath, os.path.join(self.getProject().path, repPath))
-                itemDict[self.ITEM_REPRESENTATION] = repPath
-        except:
+
+        except Exception as e:
             print("Cannot obtain item representation for %s" % str(itemPath))
 
         return itemDict
