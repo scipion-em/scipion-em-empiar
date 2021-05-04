@@ -35,7 +35,7 @@ Go to https://www.ibm.com/aspera/connect/ and download the latest version.
 
 Go to https://www.ebi.ac.uk/pdbe/emdb/empiar/deposition/register/ and get an API token at **Get empiar-deposition API token** section
 
-4.  Add the following variables at ~/.config/scipion/scipion.conf file:
+4.  Open scipion's config file 'scipion3 config --show' and add the following variables:
 
 .. code-block::
 
