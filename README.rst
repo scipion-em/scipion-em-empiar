@@ -35,10 +35,10 @@ Go to https://www.ibm.com/aspera/connect/ and download the latest version.
 
 Go to https://www.ebi.ac.uk/pdbe/emdb/empiar/deposition/register/ and get an API token at **Get empiar-deposition API token** section
 
-4.  Add the following variables at ~/.config/scipion/scipion.conf file:
+4.  Open scipion's config file 'scipion3 config --show' and add the following variables:
 
 .. code-block::
 
-    ASCP = <aspera_binary_path> (usually it is located at ~/.aspera/connect/bin/ascp)
+    ASCP = <aspera_binary_path> (usually it is located at $HOME/.aspera/connect/bin/ascp)
     ASPERA_SCP_PASS= <aspera_shares_user_password>
     EMPIAR_TOKEN = <empiar_token>
