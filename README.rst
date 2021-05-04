@@ -39,6 +39,6 @@ Go to https://www.ebi.ac.uk/pdbe/emdb/empiar/deposition/register/ and get an API
 
 .. code-block::
 
-    ASCP = <aspera_binary_path> (usually it is located at ~/.aspera/connect/bin/ascp)
+    ASCP = <aspera_binary_path> (usually it is located at $HOME/.aspera/connect/bin/ascp)
     ASPERA_SCP_PASS= <aspera_shares_user_password>
     EMPIAR_TOKEN = <empiar_token>
