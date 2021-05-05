@@ -37,6 +37,7 @@ from pyworkflow.protocol import params
 from pyworkflow.object import String
 import pyworkflow.utils as pwutils
 
+from .. import Plugin
 from ..constants import (ASPERA_PASS, EMPIAR_TOKEN,
                          ASCP_PATH, DEPOSITION_SCHEMA,
                          DEPOSITION_TEMPLATE)
@@ -332,11 +333,17 @@ class EmpiarDepositor(EMProtocol):
         errors = []
         if self.submit:
             if EMPIAR_TOKEN not in os.environ:
-                errors.append("Environment variable %s not set. Please set your %s in ~/.config/scipion/scipion.conf "
-                              "or in your environment." % (EMPIAR_TOKEN, EMPIAR_TOKEN))
+                errors.append("Environment variable %s not set." % EMPIAR_TOKEN)
+
             if ASPERA_PASS not in os.environ:
-                errors.append("Environment variable %s not set. Please set your %s in ~/.config/scipion/scipion.conf "
-                              "or in your environment." % (ASPERA_PASS, ASPERA_PASS))
+                errors.append("Environment variable %s not set." % ASPERA_PASS)
+
+            if not os.path.exists(Plugin.getVar(ASCP_PATH)):
+                errors.append("Variable %s points to %s (aspera client) but it does not exists." % (ASCP_PATH, Plugin.getVar(ASCP_PATH)))
+
+            if errors:
+                errors.append("Please review the setup section at %s ." % Plugin.getUrl())
+
         return errors
 
     def _citations(self):

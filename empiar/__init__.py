@@ -37,7 +37,8 @@ _logo = 'EMPIAR_logo.png'
 
 
 class Plugin(pwem.Plugin):
-    _pathVars = [ASCP_PATH]
+    _pathVars = []
+    _url = "https://github.com/scipion-em/scipion-em-empiar"
 
     @classmethod
     def _defineVariables(cls):
