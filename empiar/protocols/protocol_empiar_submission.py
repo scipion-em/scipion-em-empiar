@@ -326,6 +326,9 @@ class EmpiarDepositor(EMProtocol):
         # export workflow json
         self.exportWorkflow()
 
+        # If submission is not happening
+        if not self.submit:
+            return
         # create deposition json
         jsonTemplatePath = self.jsonTemplate.get('').strip() or DEPOSITION_TEMPLATE
 

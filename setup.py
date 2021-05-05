@@ -31,8 +31,8 @@ setup(
     packages=find_packages(),
     install_requires=['empiar-depositor', 'jsonschema', 'scipion-em'],
     package_data={
-       'empiar': ['EMPIAR_logo.png', 'empiar_deposition.schema.json',
-                  'empiar_deposition_template.json', 'protocols.conf'],
+       'empiar': ['EMPIAR_logo.png',
+                  'templates/empiar_deposition_template.json', 'protocols.conf'],
     },
     entry_points={
         'pyworkflow.plugin': 'empiar = empiar'
