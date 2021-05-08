@@ -327,7 +327,7 @@ class EmpiarDepositor(EMProtocol):
         self.exportWorkflow()
 
         # If deposition is not happening
-        if not self.deposition:
+        if not self.deposit:
             return
         # create deposition json
         jsonTemplatePath = self.jsonTemplate.get('').strip() or DEPOSITION_TEMPLATE
@@ -699,6 +699,8 @@ class EmpiarDepositor(EMProtocol):
                 # Get all slices in x,y and z directions of representative to represent the class
                 repDir = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.removeBaseExt(item.getRepresentative().getFileName())))
                 pwutils.makePath(repDir)
+                if item.getFileName().endswith('.mrc'):
+                    item.setFileName(item.getFileName() + ':mrc')
                 I = emlib.Image(item.getRepresentative().getFileName())
                 I.writeSlices(os.path.join(repDir,'slicesX'), 'jpg', 'X')
                 I.writeSlices(os.path.join(repDir, 'slicesY'), 'jpg', 'Y')
@@ -718,6 +720,8 @@ class EmpiarDepositor(EMProtocol):
                 # Get all slices in x,y and z directions to represent the volume
                 repDir = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.removeBaseExt(item.getFileName())))
                 pwutils.makePath(repDir)
+                if item.getFileName().endswith('.mrc'):
+                    item.setFileName(item.getFileName() + ':mrc')
                 I = emlib.Image(item.getFileName())
                 I.writeSlices(os.path.join(repDir,'slicesX'), 'jpg', 'X')
                 I.writeSlices(os.path.join(repDir, 'slicesY'), 'jpg', 'Y')
