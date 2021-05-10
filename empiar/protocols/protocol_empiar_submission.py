@@ -41,6 +41,7 @@ from pwem.objects import Class2D, Class3D, Image, CTFModel, Volume, Micrograph, 
 from pyworkflow.protocol import params
 from pyworkflow.object import String, Set
 import pyworkflow.utils as pwutils
+from .. import Plugin
 from pyworkflow.project import config
 from PIL import Image as ImagePIL
 from PIL import ImageDraw
@@ -325,6 +326,9 @@ class EmpiarDepositor(EMProtocol):
         # export workflow json
         self.exportWorkflow()
 
+        # If deposition is not happening
+        if not self.deposit:
+            return
         # create deposition json
         jsonTemplatePath = self.jsonTemplate.get('').strip() or DEPOSITION_TEMPLATE
 
@@ -411,11 +415,17 @@ class EmpiarDepositor(EMProtocol):
         errors = []
         if self.deposit:
             if EMPIAR_TOKEN not in os.environ:
-                errors.append("Environment variable %s not set. Please set your %s in ~/.config/scipion/scipion.conf "
-                              "or in your environment." % (EMPIAR_TOKEN, EMPIAR_TOKEN))
+                errors.append("Environment variable %s not set." % EMPIAR_TOKEN)
+
             if ASPERA_PASS not in os.environ:
-                errors.append("Environment variable %s not set. Please set your %s in ~/.config/scipion/scipion.conf "
-                              "or in your environment." % (ASPERA_PASS, ASPERA_PASS))
+                errors.append("Environment variable %s not set." % ASPERA_PASS)
+
+            if not os.path.exists(Plugin.getVar(ASCP_PATH)):
+                errors.append("Variable %s points to %s (aspera client) but it does not exists." % (ASCP_PATH, Plugin.getVar(ASCP_PATH)))
+
+            if errors:
+                errors.append("Please review the setup section at %s ." % Plugin.getUrl())
+
         return errors
 
     def _citations(self):
@@ -689,6 +699,8 @@ class EmpiarDepositor(EMProtocol):
                 # Get all slices in x,y and z directions of representative to represent the class
                 repDir = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.removeBaseExt(item.getRepresentative().getFileName())))
                 pwutils.makePath(repDir)
+                if item.getFileName().endswith('.mrc'):
+                    item.setFileName(item.getFileName() + ':mrc')
                 I = emlib.Image(item.getRepresentative().getFileName())
                 I.writeSlices(os.path.join(repDir,'slicesX'), 'jpg', 'X')
                 I.writeSlices(os.path.join(repDir, 'slicesY'), 'jpg', 'Y')
@@ -708,6 +720,8 @@ class EmpiarDepositor(EMProtocol):
                 # Get all slices in x,y and z directions to represent the volume
                 repDir = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.removeBaseExt(item.getFileName())))
                 pwutils.makePath(repDir)
+                if item.getFileName().endswith('.mrc'):
+                    item.setFileName(item.getFileName() + ':mrc')
                 I = emlib.Image(item.getFileName())
                 I.writeSlices(os.path.join(repDir,'slicesX'), 'jpg', 'X')
                 I.writeSlices(os.path.join(repDir, 'slicesY'), 'jpg', 'Y')

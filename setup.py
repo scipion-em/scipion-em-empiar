@@ -11,6 +11,8 @@ from setuptools import setup, find_packages
 from codecs import open
 from os import path
 
+from empiar import __version__
+
 here = path.abspath(path.dirname(__file__))
 
 # Get the long description from the README file
@@ -19,7 +21,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='scipion-em-empiar',
-    version='3.0.3',
+    version=__version__,
     description='A Scipion plugin to make depositions to EMPIAR',
     long_description=long_description,
     url='https://github.com/scipion-em/scipion-em-empiar',
@@ -29,8 +31,8 @@ setup(
     packages=find_packages(),
     install_requires=['empiar-depositor', 'jsonschema', 'scipion-em'],
     package_data={
-       'empiar': ['EMPIAR_logo.png', 'empiar_deposition.schema.json',
-                  'empiar_deposition_template.json', 'protocols.conf'],
+       'empiar': ['EMPIAR_logo.png',
+                  'templates/empiar_deposition_template.json', 'protocols.conf'],
     },
     entry_points={
         'pyworkflow.plugin': 'empiar = empiar'
