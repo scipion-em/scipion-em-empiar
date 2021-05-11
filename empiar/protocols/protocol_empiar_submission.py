@@ -29,12 +29,12 @@ import json
 import copy
 import requests
 import re
+from pkg_resources import resource_filename
 
 import jsonschema
 from empiar_depositor import empiar_depositor
 from empiar.constants import (ASPERA_PASS, EMPIAR_TOKEN, EMPIAR_DEVEL_MODE,
-                              ASCP_PATH, DEPOSITION_SCHEMA,
-                              DEPOSITION_TEMPLATE)
+                              ASCP_PATH)
 from pwem import emlib, Domain
 from pwem.protocols import EMProtocol
 from pwem.objects import Class2D, Class3D, Image, CTFModel, Volume, Micrograph, Movie, Particle, SetOfCoordinates
@@ -45,6 +45,9 @@ from .. import Plugin
 from pyworkflow.project import config
 from PIL import Image as ImagePIL
 from PIL import ImageDraw
+
+DEPOSITION_TEMPLATE = resource_filename('empiar', '/'.join(('templates', 'empiar_deposition_template.json')))
+DEPOSITION_SCHEMA = resource_filename('empiar_depositor', '/empiar_deposition.schema.json')
 
 class EmpiarMappingError(Exception):
     """To raise it when we can't map Scipion data to EMPIAR data,

@@ -24,7 +24,6 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-from pkg_resources import resource_filename
 
 EMPIAR_HOME = 'EMPIAR_HOME'
 
@@ -32,6 +31,3 @@ ASCP_PATH = "ASCP"
 ASPERA_PASS = "ASPERA_SCP_PASS"
 EMPIAR_TOKEN = "EMPIAR_TOKEN"
 EMPIAR_DEVEL_MODE = "EMPIAR_DEVEL_MODE"
-
-DEPOSITION_TEMPLATE = resource_filename('empiar', '/'.join(('templates', 'empiar_deposition_template.json')))
-DEPOSITION_SCHEMA = resource_filename('empiar_depositor', '/empiar_deposition.schema.json')
