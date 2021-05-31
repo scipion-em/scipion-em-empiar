@@ -150,6 +150,9 @@ class EmpiarDownloader(EMProtocol):
         # Set the movie sampling rate to the sampling rate obtained in the readXmlFromEmpiar step
         newImage.setSamplingRate(self.samplingRate.get())
 
+        # Mic name!! Important
+        newImage.setMicName(os.path.basename(dest))
+
         # Pass the movie to _addMovieToOutput
         self._addMovieToOutput(newImage)
 
