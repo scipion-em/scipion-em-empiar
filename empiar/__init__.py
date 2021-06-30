@@ -31,7 +31,7 @@ import pwem
 from .constants import *
 
 
-__version__ = '3.0.3'
+__version__ = '3.0.5'
 _references = ['Iudin2016']
 _logo = 'EMPIAR_logo.png'
 
@@ -49,7 +49,7 @@ class Plugin(pwem.Plugin):
     @classmethod
     def defineBinaries(cls, env):
         empiar_cmd = [('./aspera-connect-3.7.4.147727-linux-64.sh',
-                      [cls.getVar(ASCP_PATH)])]
+                      [])]
         url = 'https://download.asperasoft.com/download/sw/connect/3.7.4/aspera-connect-3.7.4.147727-linux-64.tar.gz'
         env.addPackage('ascp', version="3.7.4",
                        url=url,

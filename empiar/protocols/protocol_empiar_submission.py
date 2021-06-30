@@ -29,12 +29,12 @@ import json
 import copy
 import requests
 import re
+from pkg_resources import resource_filename
 
 import jsonschema
 from empiar_depositor import empiar_depositor
 from empiar.constants import (ASPERA_PASS, EMPIAR_TOKEN, EMPIAR_DEVEL_MODE,
-                              ASCP_PATH, DEPOSITION_SCHEMA,
-                              DEPOSITION_TEMPLATE)
+                              ASCP_PATH)
 from pwem import emlib, Domain
 from pwem.protocols import EMProtocol
 from pwem.objects import Class2D, Class3D, Image, CTFModel, Volume, Micrograph, Movie, Particle, SetOfCoordinates
@@ -45,6 +45,9 @@ from .. import Plugin
 from pyworkflow.project import config
 from PIL import Image as ImagePIL
 from PIL import ImageDraw
+
+DEPOSITION_TEMPLATE = resource_filename('empiar', '/'.join(('templates', 'empiar_deposition_template.json')))
+DEPOSITION_SCHEMA = resource_filename('empiar_depositor', '/empiar_deposition.schema.json')
 
 class EmpiarMappingError(Exception):
     """To raise it when we can't map Scipion data to EMPIAR data,
@@ -378,7 +381,7 @@ class EmpiarDepositor(EMProtocol):
         args = {'resume': '-r %s %s' % (self.entryID, self.uniqueDir) if self.resume else "",
                 'token': os.environ[EMPIAR_TOKEN],
                 'depoJson': os.path.abspath(self.depositionJsonPath.get()),
-                'ascp': '-a %s' % os.environ[ASCP_PATH],
+                'ascp': '-a %s' % Plugin.getVar(ASCP_PATH),
                 'devel': '-d' if (EMPIAR_DEVEL_MODE in os.environ and os.environ[EMPIAR_DEVEL_MODE] == '1') else '',
                 'data': os.path.abspath(self.getTopLevelPath()),
                 'submit': '' if self.submit else '-s',
@@ -388,7 +391,7 @@ class EmpiarDepositor(EMProtocol):
         depositorCall = depositorCall % args
         print("Empiar depositor call: %s" % depositorCall)
         dep_result = empiar_depositor.main(depositorCall.split())
-        self.entryID.set(dep_result[0])
+        self.entryID.set(str(dep_result[0]))
         self.uniqueDir.set(dep_result[1])
         self._store()
 
