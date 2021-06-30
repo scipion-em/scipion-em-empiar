@@ -381,7 +381,7 @@ class EmpiarDepositor(EMProtocol):
         args = {'resume': '-r %s %s' % (self.entryID, self.uniqueDir) if self.resume else "",
                 'token': os.environ[EMPIAR_TOKEN],
                 'depoJson': os.path.abspath(self.depositionJsonPath.get()),
-                'ascp': '-a %s' % os.environ[ASCP_PATH],
+                'ascp': '-a %s' % Plugin.getVar(ASCP_PATH),
                 'devel': '-d' if (EMPIAR_DEVEL_MODE in os.environ and os.environ[EMPIAR_DEVEL_MODE] == '1') else '',
                 'data': os.path.abspath(self.getTopLevelPath()),
                 'submit': '' if self.submit else '-s',
@@ -391,7 +391,7 @@ class EmpiarDepositor(EMProtocol):
         depositorCall = depositorCall % args
         print("Empiar depositor call: %s" % depositorCall)
         dep_result = empiar_depositor.main(depositorCall.split())
-        self.entryID.set(dep_result[0])
+        self.entryID.set(str(dep_result[0]))
         self.uniqueDir.set(dep_result[1])
         self._store()
 
