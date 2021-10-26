@@ -29,7 +29,7 @@ setup(
     author_email='scipion@cnb.csic.es',
     keywords='scipion empiar scipion-3.0',
     packages=find_packages(),
-    install_requires=['empiar-depositor', 'jsonschema', 'scipion-em', 'rocrate==0.3.1', 'cwltool'],
+    install_requires=['empiar-depositor', 'jsonschema', 'scipion-em'],
     package_data={
        'empiar': ['EMPIAR_logo.png',
                   'templates/empiar_deposition_template.json', 'protocols.conf'],

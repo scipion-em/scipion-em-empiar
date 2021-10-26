@@ -46,12 +46,8 @@ from .. import Plugin
 from pyworkflow.project import config
 from PIL import Image as ImagePIL
 from PIL import ImageDraw
-import rocrate.rocrate as roc
-from rocrate.model.contextentity import ContextEntity
-from rocrate.model.workflow import Workflow
 import subprocess
 from pathlib import Path
-import yaml
 
 DEPOSITION_TEMPLATE = resource_filename('empiar', '/'.join(('templates', 'empiar_deposition_template.json')))
 DEPOSITION_SCHEMA = resource_filename('empiar_depositor', '/empiar_deposition.schema.json')
@@ -60,133 +56,6 @@ class EmpiarMappingError(Exception):
     """To raise it when we can't map Scipion data to EMPIAR data,
     e.g. we don't manage to assign an EMPIAR category to an image set."""
     pass
-
-class CWL:
-    version = 'v1.1'
-    label = ''
-    doc = ''
-    inputs = []
-    outputs = []
-    steps = []
-    ontology_name = 'cryoem'
-    ontology_url = 'http://scipion.i2pc.es/ontology/'
-    ontology_dict = {'Acquisition': 'CRYOEM_0000004',
-                     'AtomStruct': 'CRYOEM_0000005',
-                     'Coordinate': 'CRYOEM_0000006',
-                     'CTFModel': 'CRYOEM_0000007',
-                     'DefocusGroup': 'CRYOEM_0000008',
-                     'EMSet': 'CRYOEM_0000009',
-                     'SetOfAtomStructs': 'CRYOEM_0000023',
-                     'SetOfClasses': 'CRYOEM_0000024',
-                     'SetOfClasses2D': 'CRYOEM_0000065',
-                     'SetOfClasses3D': 'CRYOEM_0000066',
-                     'SetOfClassesVol': 'CRYOEM_0000067',
-                     'SetOfCoordinates': 'CRYOEM_0000025',
-                     'SetOfCTF': 'CRYOEM_0000026',
-                     'SetOfDefocusGroup': 'CRYOEM_0000027',
-                     'SetOfFSCs': 'CRYOEM_0000028',
-                     'SetOfImages': 'CRYOEM_0000029',
-                     'SetOfImages2D': 'CRYOEM_0000068',
-                     'SetOfAverages': 'CRYOEM_0000094',
-                     'SetOfMicrographs': 'CRYOEM_0000095',
-                     'SetOfMovies': 'CRYOEM_0000096',
-                     'SetOfParticles': 'CRYOEM_0000097',
-                     'Class2D': 'CRYOEM_0000104',
-                     'Class3D': 'CRYOEM_0000105',
-                     'SetOfMovieParticles': 'CRYOEM_0000106',
-                     'SetOfImages3D': 'CRYOEM_0000069',
-                     'SetOfVolumes': 'CRYOEM_0000098',
-                     'ClassVol': 'CRYOEM_0000107',
-                     'SetOfNormalModes': 'CRYOEM_0000030',
-                     'SetOfSequences': 'CRYOEM_0000031',
-                     'FSC': 'CRYOEM_0000010',
-                     'Image': 'CRYOEM_0000011',
-                     'Image2D': 'CRYOEM_0000032',
-                     'Average': 'CRYOEM_0000070',
-                     'Mask': 'CRYOEM_0000071',
-                     'Micrograph': 'CRYOEM_0000072',
-                     'Movie': 'CRYOEM_0000073',
-                     'Particle': 'CRYOEM_0000074',
-                     'MovieParticle': 'CRYOEM_0000099',
-                     'Image3D': 'CRYOEM_0000033',
-                     'Volume': 'CRYOEM_0000075',
-                     'VolumeMask': 'CRYOEM_0000076',
-                     'NormalMode': 'CRYOEM_0000012',
-                     'Sequence': 'CRYOEM_0000013',
-                     'Transform': 'CRYOEM_0000014'}
-
-    def __init__(self):
-        pass
-
-    def set(self, key, value):
-        if key == 'version':
-            self.version = value
-        if key == 'label':
-            self.label = value
-        elif key == 'doc':
-            self.doc = value
-        elif key == 'steps':
-            self.steps = value
-
-    def format_steps(self):
-        """ Formats the workflow steps in a proper way to be CWL-valid """
-        if len(self.steps.keys()) > 0:
-            steps_formatted = {}
-            for id, step in self.steps.items():
-                steps_formatted[step['class']] = {'label': step['label'], 'doc': step['summary']}
-                steps_formatted[step['class']]['run'] = {'class': 'CommandLineTool', 'baseCommand': []}
-                steps_formatted[step['class']]['out'] = []
-
-                if len(step['input']) > 0:
-                    steps_formatted[step['class']]['in'] = {}
-                    steps_formatted[step['class']]['run']['inputs'] = {}
-                    for input in step['input']:
-                        steps_formatted[step['class']]['in'][input['id']] = {'source': input['source']}
-                        steps_formatted[step['class']]['run']['inputs'][input['id']] = {'type': 'File',
-                                                                                        'format': self.ontology_name + ':' + self.ontology_dict[input['class']] if input['class'] in self.ontology_dict else 'unknown'}
-                else:
-                    steps_formatted[step['class']]['in'] = []
-                    steps_formatted[step['class']]['run']['inputs'] = []
-
-                if len(step['output']) > 0:
-                    steps_formatted[step['class']]['run']['outputs'] = {}
-                    for output in step['output']:
-                        steps_formatted[step['class']]['out'].append(output['id'])
-                        steps_formatted[step['class']]['run']['outputs'][output['id']] = {'type': 'File',
-                                                                                          'format': self.ontology_name + ':' + self.ontology_dict[output['class']] if output['class'] in self.ontology_dict else 'unknown'}
-                else:
-                    steps_formatted[step['class']]['run']['outputs'] = []
-
-            return steps_formatted
-        else:
-            return []
-
-    def validate(self, path, filename):
-        """ Checks if a CWL workflow it's correct (in terms of syntax) """
-        cmd = 'cwltool --validate %s' % '/'.join((path, filename))
-        output = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE)
-        return True if 'is valid CWL' in str(output.stdout) else False
-
-    def create(self, path, filename):
-        """ Creates a CWL workflow and checks if it is a valid one """
-        workflow_cwl = {'cwlVersion': self.version,
-                        'class': 'Workflow',
-                        'label': self.label,
-                        'doc': self.doc,
-                        'inputs': [],
-                        'outputs': [],
-                        'steps': self.format_steps(),
-                        '$namespaces': {self.ontology_name: self.ontology_url}}
-
-        with open('/'.join((path, filename)), 'w') as file:
-            yaml.dump(workflow_cwl, file, sort_keys=False)
-
-        cwl_valid = True if self.validate(path, filename) else False
-        return cwl_valid
-
-    def __str__(self):
-        return '<CWL {} {} {} {} {} {} {}>'.format(self.version, self.label, self.doc, self.inputs, self.outputs,
-                                                   self.steps, self.ontology_name + ':' + self.ontology_url)
 
 class EmpiarDepositor(EMProtocol):
     """
@@ -254,8 +123,6 @@ class EmpiarDepositor(EMProtocol):
 
     OUTPUT_DEPO_JSON = 'deposition.json'
     OUTPUT_WORKFLOW = 'workflow.json'
-    OUTPUT_WORKFLOW_CWL = 'workflow.cwl'
-    OUTPUT_WORKFLOW_ROCRATE = 'workflow.crate.zip'
 
     ENTRY_DIR = 'data'
 
@@ -375,6 +242,8 @@ class EmpiarDepositor(EMProtocol):
                       )
 
         form.addParam('citations', params.FileParam, label='Citations bibtex', help="File containing a bibtex with citations.")
+        form.addParam('workflowHubURLs', params.StringParam, label="WorkflowHub URL/DOI (Optional)", allowsNull=True,
+                      help="If this analysis is based on a/several WorkflowHub entry/ies you can provide the link/s separated by comma.")
 
         form.addSection(label='Image sets')
         self.inputSetsParam = form.addParam('inputSets', params.MultiPointerParam,
@@ -445,7 +314,6 @@ class EmpiarDepositor(EMProtocol):
             self._insertFunctionStep('provideEMDBcodesStep')
         else:
             self._insertFunctionStep('createDepositionStep')
-            self._insertFunctionStep('createROCrateStep')
             if self.deposit:
                 self._insertFunctionStep('makeDepositionStep')
 
@@ -502,93 +370,6 @@ class EmpiarDepositor(EMProtocol):
 
         self._store()
         self.validateDepoJson(depoDict)
-
-    def createROCrateStep(self):
-        # This function will create a RO-Crate zip with CWL workflow description, a diagram and other relevant metadata
-
-        # First, let's create the dependencies workflow
-        project = self.getProject()
-        workflowProts = [p for p in project.getRuns()]
-        workflow = {}
-        for prot in workflowProts:
-            protDict = prot.getDefinitionDict()
-            workflow[protDict['object.id']] = {'class': protDict['object.id'] + '_' + protDict['object.className'],
-                                               'label': protDict['object.label'],
-                                               'summary': ', '.join(map(str, prot.summary())),
-                                               'input': [],
-                                               'output': []}
-            for a, input in prot.iterInputAttributes():
-                workflow[protDict['object.id']]['input'].append(
-                    {'id': input.get().getObjName() if input.isPointer() else input.getObjName(),
-                     'class': input.get().getClassName() if input.isPointer() else input.getClassName()})
-
-            for a, output in prot.iterOutputAttributes():
-                workflow[protDict['object.id']]['output'].append({'id': output.getObjName(),
-                                                                  'class': output.getClassName()})
-
-        # Relate inputs and outputs
-        for id, prot in workflow.items():
-            for input in prot['input']:
-                for id, prot in workflow.items():
-                    for output in prot['output']:
-                        if input['id'] == output['id']:
-                            input['source'] = prot['class'] + '/' + input['id']
-
-        # Create a CWL workflow and if its syntax is ok then create the RO-Crate
-        cwl = CWL()
-        cwl.set('label', self.entryTitle.get())
-        cwl.set('doc', 'Cryo-EM processing workflow')
-        cwl.set('steps', workflow)
-        print("Saving CWL...")
-        cwl_valid = cwl.create(self._getTmpPath(), self.OUTPUT_WORKFLOW_CWL)
-        if cwl_valid:
-            print("... CWL valid. Creating RO-Crate...")
-
-            wf_path = '/'.join((self._getTmpPath(), self.OUTPUT_WORKFLOW_CWL))
-
-            wf_crate = roc.ROCrate()
-            wf_file = Workflow(wf_crate, str(wf_path), Path(wf_path).name)
-            wf_file['programmingLanguage'] = {"@id": "#cwl"}
-
-            # create workflow diagram (dot tool from Graphviz must be installed)
-            diagram_path = wf_path.replace('.cwl', '.svg')
-            cmd = 'cwltool --print-dot %s | dot -Tsvg > %s' % (wf_path, diagram_path)
-            subprocess.run(cmd, shell=True, stdout=subprocess.PIPE)
-            if os.path.exists(diagram_path):  # if the diagram was properly created
-                image = self.OUTPUT_WORKFLOW_CWL.replace('.cwl', '.svg')
-                wf_crate.image = image
-                wf_file['image'] = {"@id": image}
-
-            wf_crate._add_data_entity(wf_file)
-            wf_crate.set_main_entity(wf_file)
-            wf_crate.add_file(
-                os.path.join(self.getProject().path,
-                             self.getTopLevelPath(self.OUTPUT_WORKFLOW)))  # add also workflow.json
-            if os.path.exists(diagram_path):
-                wf_crate.add_file(diagram_path)
-
-            cwl_entity = {"@type": "ComputerLanguage",
-                          "name": "Common Workflow Language",
-                          "alternateName": "CWL",
-                          "identifier": {"@id": "https://w3id.org/cwl/v1.0/"},
-                          "url": {"@id": "https://www.commonwl.org/"}}
-            cwl_entity = ContextEntity(wf_crate, "#cwl", cwl_entity)
-            wf_crate._add_context_entity(cwl_entity)
-
-            wf_crate.license = 'Apache-2.0'
-            wf_crate.name = self.entryTitle.get()
-            wf_crate.keywords = ['cryoem']
-            wf_crate.description = 'Cryo-EM processing workflow'
-            publisher = wf_crate.add_person('001', {'name': self.entryAuthor.get()})
-            wf_crate.publishers = publisher
-
-            rocrate_path = self.getTopLevelPath(self.OUTPUT_WORKFLOW_ROCRATE)
-            wf_crate.write_zip(out_zip=rocrate_path)
-
-            print("... RO-Crate created")
-        else:
-            print("... CWL not valid. It's not possible to create RO-Crate")
-        self._store()
 
     def makeDepositionStep(self):
         depositorCall = '%(resume)s %(token)s %(depoJson)s %(ascp)s %(devel)s %(data)s -o %(submit)s %(grant)s'
