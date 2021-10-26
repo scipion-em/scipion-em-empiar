@@ -42,5 +42,3 @@ Go to https://www.ebi.ac.uk/pdbe/emdb/empiar/deposition/register/ and get an API
     ASCP = <aspera_binary_path> (usually it is located at $HOME/.aspera/connect/bin/ascp)
     ASPERA_SCP_PASS= <aspera_shares_user_password>
     EMPIAR_TOKEN = <empiar_token>
-
-NOTE: If you want to create a Workflow RO-Crate (https://about.workflowhub.eu/Workflow-RO-Crate/) you must have Graphviz installed (https://graphviz.org/download/)
