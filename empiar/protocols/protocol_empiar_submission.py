@@ -173,8 +173,8 @@ class EmpiarDepositor(EMProtocol):
         OUTPUT_NAME: ""
     }
 
-    SCIPION_WORKFLOW_KEY = 'scipion'
-    SCIPION_WORKFLOW = 'scipion_workflow'
+    SCIPION_WORKFLOW_KEY = 'workflow_file'
+    SCIPION_WORKFLOW = 'path'
 
     _workflowTemplate = {
         SCIPION_WORKFLOW: ""
@@ -214,6 +214,7 @@ class EmpiarDepositor(EMProtocol):
                       help="EMPIAR entry title. This should not be empty if not using a custom template.")
         form.addParam('entryAuthor', params.StringParam, label="Entry author", important=True,
                       help='EMPIAR entry author in the form "LastName, Initials" e.g. Smith, JW\n'
+                           'If more than one author is provided, put a semicolon between them. e.g. Smith, JW; Winter, A\n'
                            'This should not be empty if not using a custom template.')
         form.addParam('experimentType', params.EnumParam, label="Experiment type",
                       choices=self._experimentTypes, default=2, important=True,
@@ -333,8 +334,15 @@ class EmpiarDepositor(EMProtocol):
         # create deposition json
         jsonTemplatePath = self.jsonTemplate.get('').strip() or DEPOSITION_TEMPLATE
 
-        entryAuthorStr = self.entryAuthor.get().split(',')
-        self.entryAuthorStr = "'%s', '%s'" % (entryAuthorStr[0].strip(), entryAuthorStr[1].strip())
+        authors = self.entryAuthor.get().split(';')
+        self.entryAuthorStr = "["
+        order_id = 0
+        for author in authors:
+            entryAuthorStr = author.split(',')
+            self.entryAuthorStr += '%s{"name": "(\'%s\', \'%s\')", "order_id": %s, "author_orcid": null}' % (',' if order_id > 0 else '', entryAuthorStr[0].strip(), entryAuthorStr[1].strip(), order_id)
+            order_id += 1
+        self.entryAuthorStr += ']'
+
         self.releaseDate = self.getEnumText('releaseDate')
         self.experimentType = self.experimentType.get()+1
 
@@ -731,11 +739,13 @@ class EmpiarDepositor(EMProtocol):
                 repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s_%s' % (self.outputName, item.getIndex(), pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
                 itemPath = item.getLocation()
                 # apply a low pass filter
-                args = " -i %s -o %s --fourier low_pass %f" % (itemPath[1], self._getTmpPath(os.path.basename(item.getFileName())), 0.05)
-                getEnviron = Domain.importFromPlugin('xmipp3', 'Plugin', doRaise=True).getEnviron
-                self.runJob('xmipp_transform_filter', args, env=getEnviron())
-
-                self._ih.convert(self._getTmpPath(os.path.basename(item.getFileName())), os.path.join(self.getProject().path, repPath))
+                if item.getFileName().endswith('.stk'):
+                    self._ih.convert(itemPath[1], os.path.join(self.getProject().path, repPath))
+                else:
+                    args = " -i %s -o %s --fourier low_pass %f" % (itemPath[1], self._getTmpPath(os.path.basename(item.getFileName())), 0.05)
+                    getEnviron = Domain.importFromPlugin('xmipp3', 'Plugin', doRaise=True).getEnviron
+                    self.runJob('xmipp_transform_filter', args, env=getEnviron())
+                    self._ih.convert(self._getTmpPath(os.path.basename(item.getFileName())), os.path.join(self.getProject().path, repPath))
                 itemDict[self.ITEM_REPRESENTATION] = repPath
 
             elif isinstance(item, CTFModel):
@@ -762,6 +772,6 @@ class EmpiarDepositor(EMProtocol):
                         break
 
         except Exception as e:
-            print("Cannot obtain item representation for %s" % str(itemPath))
+            print("Cannot obtain item representation for %s" % str(item))
 
         return itemDict
