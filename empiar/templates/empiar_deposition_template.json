@@ -3,13 +3,7 @@
 	"release_date": "%(releaseDate)s",
 	"experiment_type": %(experimentType)d,
 	"cross_references": [],
-	"authors": [
-		{
-		  "name": "(%(entryAuthorStr)s)",
-		  "order_id": 0,
-		  "author_orcid": null
-		}
-    ],
+	"authors": %(entryAuthorStr)s,
 	"corresponding_author": {
 		"author_orcid": null,
 		"middle_name": null,
@@ -60,20 +54,14 @@
 			"image_height": ""
 		}
 	],
-	"scipion": [
+	"workflow_file": [
 		{
-			"scipion_workflow": ""
+			"path": ""
 		}
 	],
 	"citation": [
 		{
-			"authors": [
-			    {
-			      "name": "(%(entryAuthorStr)s)",
-				  "order_id": 0,
-			      "author_orcid": null
-			    }
-			],
+			"authors": %(entryAuthorStr)s,
 			"editors": [],
 			"published": false,
 			"j_or_nj_citation": false,

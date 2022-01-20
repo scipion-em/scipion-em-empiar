@@ -4,7 +4,7 @@ import ftplib
 import os
 
 from pwem.objects import Movie, SetOfMovies, Acquisition
-from pwem.protocols import EMProtocol
+from pwem.protocols import EMProtocol, ProtImportImages
 from pyworkflow.protocol import params, String, STEPS_PARALLEL
 import pyworkflow.utils as pwutils
 
@@ -52,8 +52,22 @@ class EmpiarDownloader(EMProtocol):
 
         form.addParam("gainUrl", params.StringParam, label="Gain url", help="Url in the ftp site where the gain image is")
 
+
+        ProtImportImages._defineAcquisitionParams(self, form)
+
+        line = form.addLine('Dose (e/A^2)',
+                             help="Initial accumulated dose (usually 0) and "
+                                  "dose per frame. ")
+
+        line.addParam('doseInitial', params.FloatParam, default=0,
+                      label='Initial')
+
         # Parallel section defining the number of threads and mpi to use
         form.addParallelSection(threads=3, mpi=1)
+
+    def _acquisitionWizardCondition(self):
+        """ Used from define Acquisition param. For this case wizard is not available."""
+        return 'False'
 
     def _insertAllSteps(self):
         self.readXmlFile = self._insertFunctionStep(self.readEmpiarMetadataStep)  # read the dataset xml file from EMPIAR
@@ -188,7 +202,10 @@ class EmpiarDownloader(EMProtocol):
             outputSet.setStreamState(SetOfMovies.STREAM_OPEN)
 
             # Acquisition: NOTE. Since acquisition is not described in EMPIAR we go for default values but we might need params
-            acquisition = Acquisition(magnification=59000, voltage=300, sphericalAberration=2.0, amplitudeContrast=0.1)
+            acquisition = Acquisition(magnification=self.magnification.get(), voltage=self.voltage.get(),
+                                      sphericalAberration=self.sphericalAberration.get(), amplitudeContrast=self.amplitudeContrast.get())
+            acquisition.setDoseInitial(self.doseInitial.get())
+            acquisition.setDosePerFrame(self.dosePerFrame.get())
             outputSet.setAcquisition(acquisition)
 
             # define the output in the protocol (_defineOutputs). Be sure you use outputMovies as the name of the output
