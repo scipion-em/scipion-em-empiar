@@ -51,6 +51,7 @@ from pathlib import Path
 
 DEPOSITION_TEMPLATE = resource_filename('empiar', '/'.join(('templates', 'empiar_deposition_template.json')))
 DEPOSITION_SCHEMA = resource_filename('empiar_depositor', '/empiar_deposition.schema.json')
+VIEWER_FILES = resource_filename('empiar', '/viewer_files')
 
 class EmpiarMappingError(Exception):
     """To raise it when we can't map Scipion data to EMPIAR data,
@@ -168,6 +169,7 @@ class EmpiarDepositor(EMProtocol):
     ITEM_ID = 'item_id'
     ITEM_REPRESENTATION = 'item_representation'
     DIR_IMAGES = 'images_representation'
+    DIR_VIEWER = 'web-workflow-viewer'
 
     _outputTemplate = {
         OUTPUT_NAME: ""
@@ -196,6 +198,11 @@ class EmpiarDepositor(EMProtocol):
                       label="Make deposition", default=True,
                       help="Set to false to avoid performing a deposition to EMPIAR "
                            "(it will just be created locally).")
+        form.addParam("viewer", params.BooleanParam,
+                      label="Deploy workflow viewer locally", default=False,
+                      help="Set to true to deploy the workflow viewer locally (in http://localhost:<port chosen>) to understand how it will look in EMPIAR.\nWhen you want to stop it, you will have to do it manually by running in your terminal something like: lsof -i tcp:<port chosen> | awk 'NR > 1 {print $2}' | xargs kill")
+        form.addParam("port", params.IntParam, label="Viewer port", default=9000, condition="viewer",
+                      help="The workflow web viewer will be deployed at this port in your local machine. Choose an available one.")
         form.addParam("resume", params.BooleanParam,
                       label="Update existing entry", default=False, condition='deposit',
                       help="Is this a continuation of a previous deposition?")
@@ -315,6 +322,8 @@ class EmpiarDepositor(EMProtocol):
             self._insertFunctionStep('provideEMDBcodesStep')
         else:
             self._insertFunctionStep('createDepositionStep')
+            if self.viewer:
+                self._insertFunctionStep('deployWorkflowViewerStep')
             if self.deposit:
                 self._insertFunctionStep('makeDepositionStep')
 
@@ -378,6 +387,23 @@ class EmpiarDepositor(EMProtocol):
 
         self._store()
         self.validateDepoJson(depoDict)
+
+
+    def deployWorkflowViewerStep(self):
+        pwutils.makePath(self._getExtraPath(self.DIR_VIEWER))
+        # create links to static viewer files
+        cmd = "cd %s && ln -s %s && ln -s %s && ln -s %s && ln -s %s && ln -s %s" % (self._getExtraPath(self.DIR_VIEWER), '/'.join((VIEWER_FILES, 'css')), '/'.join((VIEWER_FILES, 'js')), '/'.join((VIEWER_FILES, 'index.html')), '/'.join((VIEWER_FILES, 'img')), '/'.join((VIEWER_FILES, 'scipion-workflow.html')))
+        subprocess.run(cmd, shell=True)
+        # create links to 'workflow.json' file and 'images_representation' thumbnails folder
+        cmd = "cd %s && ln -s %s && ln -s %s" % (self._getExtraPath(self.DIR_VIEWER), os.path.join(self.getProject().path, self.getTopLevelPath(self.DIR_IMAGES)), os.path.join(self.getProject().path, self.getTopLevelPath(self.OUTPUT_WORKFLOW)))
+        subprocess.run(cmd, shell=True)
+        # serve index.html
+        existing_deployment = subprocess.run("lsof -i tcp:%s | awk 'NR > 1 {print $2}'" % self.port, shell=True, stdout=subprocess.PIPE)
+        if existing_deployment.stdout.decode('utf-8')!='':
+            subprocess.run("kill -9 %s" % existing_deployment.stdout.decode('utf-8'), shell=True)
+        cmd = "cd %s && python3 -m http.server %s" % (os.path.join(self.getProject().path, self._getExtraPath(self.DIR_VIEWER)), self.port)
+        subprocess.Popen(cmd, shell=True)
+        print("Workflow web viewer deployed at: http://localhost:%s" % self.port)
 
     def makeDepositionStep(self):
         depositorCall = '%(resume)s %(token)s %(depoJson)s %(ascp)s %(devel)s %(data)s -o %(submit)s %(grant)s'
@@ -484,18 +510,19 @@ class EmpiarDepositor(EMProtocol):
             # Get summary and add input and output information
             summary = prot.summary()
             for a, input in prot.iterInputAttributes():
-                summary.append("Input: %s \n" % str(input.get()))
+                if input.isPointer():
+                    try:
+                        inputLabel = ' (from %s) ' % protDicts[int(input.getUniqueId().split('.')[0])]['object.label']
+                    except:
+                        inputLabel = ''
+                summary.append("Input: %s%s- %s\n" % (input.getUniqueId() if input.isPointer() else input.getObjName(), inputLabel, str(input.get())))
 
             protDicts[prot.getObjId()]['output'] = []
             num = 0
             for a, output in prot.iterOutputAttributes():
                 print('output key is %s' % a)
-                num += 1
                 protDicts[prot.getObjId()]['output'].append(self.getOutputDict(output))
-                if num == 1:
-                    summary.append("Output: %s" % str(output))
-                else:
-                    summary.append(str(output))
+                summary.append("Output: %s - %s\n" % (output.getObjName(), str(output)))
 
             protDicts[prot.getObjId()]['summary'] = ''.join(summary)
 

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CryoEM workflow viewer</title>
+    <!-- Bootstrap css for grid layout -->
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css" integrity="sha384-PsH8R72JQ3SOdhVi3uxftmaW6Vc51MKb0q5P2rRUpPvrszuE4W1povHYgTpBfshb" crossorigin="anonymous">
+
+    <!-- External references to include Scipion workflow viewer-->
+    <script src="js/webcomponents/webcomponents-loader.js"></script> <!--Handles polyfills for browser support-->
+    <link rel="import" href="scipion-workflow.html"><!-- links the web component code -->
+    <script src="js/view-mode.js"></script> <!-- view mode selector -->
+    <link rel="stylesheet" href="css/style.css" >
+</head>
+
+<body>
+    <div class="containr">
+        <h1>CryoEM workflow viewer</h1>
+        <div class="view_mode_selector">
+            <p>Select view mode:</p>
+            <select name="view-mode" id="view-mode" onchange="options[selectedIndex].value&&self.location.reload()">
+              <option value="detailed">Detailed</option>
+              <option value="summarized">Summarized</option>
+            </select>
+        </div>
+        <!-- Using Scipion workflow viewer: needs a link to a json file-->
+        <scipion-workflow src="workflow.json"></scipion-workflow>
+        <!---->
+    </div>
+    <footer>
+        <a>Powered by</a><img alt="scipion logo" src="img/scipion_logo.gif">
+    </footer>
+</body>
+
+</html>
