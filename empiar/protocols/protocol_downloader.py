@@ -61,9 +61,13 @@ class EmpiarDownloader(EMProtocol):
 
         line.addParam('doseInitial', params.FloatParam, default=0,
                       label='Initial')
+        
+        line.addParam('dosePerFrame', params.FloatParam, default=None,
+              allowsNull=True,
+              label='Per frame')
 
         # Parallel section defining the number of threads and mpi to use
-        form.addParallelSection(threads=3, mpi=1)
+        #form.addParallelSection(threads=3, mpi=1)
 
     def _acquisitionWizardCondition(self):
         """ Used from define Acquisition param. For this case wizard is not available."""
