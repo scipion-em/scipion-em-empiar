@@ -25,9 +25,22 @@
 # *
 # **************************************************************************
 
+from enum import IntEnum
+
 EMPIAR_HOME = 'EMPIAR_HOME'
 
 ASCP_PATH = "ASCP"
 ASPERA_PASS = "ASPERA_SCP_PASS"
 EMPIAR_TOKEN = "EMPIAR_TOKEN"
 EMPIAR_DEVEL_MODE = "EMPIAR_DEVEL_MODE"
+
+
+# Protocols constants below
+class DataFormat(IntEnum):
+    NONE = 0
+    MRC = 1
+    MRCS = 2
+    TIFF = 3
+    DM4 = 4
+    HDF5 = 5
+    EER = 6

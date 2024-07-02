@@ -27,6 +27,11 @@ setup(
     url='https://github.com/scipion-em/scipion-em-empiar',
     author='I2PC',
     author_email='scipion@cnb.csic.es',
+    classifiers=[  # Optional
+        'Development Status :: 5 - Production/Stable',
+        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+        'Programming Language :: Python :: 3'
+    ],
     keywords='scipion empiar scipion-3.0',
     packages=find_packages(),
     install_requires=['empiar-depositor', 'jsonschema', 'scipion-em'],
@@ -36,5 +41,9 @@ setup(
     },
     entry_points={
         'pyworkflow.plugin': 'empiar = empiar'
-    }
+    },
+    project_urls={  # Optional
+        'Bug Reports': 'https://github.com/scipion-em/scipion-em-empiar/issues',
+        'Source': 'https://github.com/scipion-em/scipion-em-empiar/',
+    },
 )

@@ -30,7 +30,7 @@
 @article {Iudin2016,
 Title = {EMPIAR: a public archive for raw electron microscopy image data},
 Author = {Iudin, Andrii and Korir, Paul K and Salavert-Torres, José and Kleywegt, Gerard J and Patwardhan, Ardan},
-DOI = {http://dx.doi.org/10.1038/nmeth.3806},
+DOI = {https://dx.doi.org/10.1038/nmeth.3806},
 Number = {5},
 Volume = {13},
 Month = {May},

@@ -28,10 +28,10 @@
 import os
 import pwem
 
-from .constants import *
+from empiar.constants import *
 
 
-__version__ = '3.0.8'
+__version__ = '3.1'
 _references = ['Iudin2016']
 _logo = 'EMPIAR_logo.png'
 
@@ -48,13 +48,14 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def defineBinaries(cls, env):
-        empiar_cmd = [('./aspera-connect-3.7.4.147727-linux-64.sh',
+        empiar_cmd = [('./ibm-aspera-connect_4.2.11.768_linux_x86_64.sh',
                       [])]
-        url = 'https://download.asperasoft.com/download/sw/connect/3.7.4/aspera-connect-3.7.4.147727-linux-64.tar.gz'
-        env.addPackage('ascp', version="3.7.4",
+
+        url = 'https://d3gcli72yxqn2z.cloudfront.net/downloads/connect/latest/bin/ibm-aspera-connect_4.2.11.768_linux_x86_64.tar.gz'
+        env.addPackage('ascp', version="4.2.11",
                        url=url,
                        default=True,
                        buildDir='ascp',
                        createBuildDir=True,
-                       target='ascp/aspera-connect-3.7.4.147727-linux-64.sh',
+                       target='ascp/ibm-aspera-connect_4.2.11.768_linux_x86_64.sh',
                        commands=empiar_cmd)

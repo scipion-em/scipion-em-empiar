@@ -29,34 +29,37 @@ import json
 import copy
 import requests
 import re
-import time
+import subprocess
 from pkg_resources import resource_filename
-
 import jsonschema
+from PIL import Image as ImagePIL
+from PIL import ImageDraw
 from empiar_depositor import empiar_depositor
-from empiar.constants import (ASPERA_PASS, EMPIAR_TOKEN, EMPIAR_DEVEL_MODE,
-                              ASCP_PATH)
-from pwem import emlib, Domain
-from pwem.protocols import EMProtocol
-from pwem.objects import Class2D, Class3D, Image, CTFModel, Volume, Micrograph, Movie, Particle, SetOfCoordinates
+
 from pyworkflow.protocol import params
 from pyworkflow.object import String, Set
 import pyworkflow.utils as pwutils
-from .. import Plugin
 from pyworkflow.project import config
-from PIL import Image as ImagePIL
-from PIL import ImageDraw
-import subprocess
-from pathlib import Path
+from pwem import emlib, Domain
+from pwem.protocols import EMProtocol
+from pwem.objects import (Class2D, Class3D, Image, CTFModel, Volume,
+                          Micrograph, Movie, Particle, SetOfCoordinates)
+
+from empiar import Plugin
+from empiar.constants import ASPERA_PASS, EMPIAR_TOKEN, EMPIAR_DEVEL_MODE, ASCP_PATH
+
+
 
 DEPOSITION_TEMPLATE = resource_filename('empiar', '/'.join(('templates', 'empiar_deposition_template.json')))
 DEPOSITION_SCHEMA = resource_filename('empiar_depositor', '/empiar_deposition.schema.json')
 VIEWER_FILES = resource_filename('empiar', '/viewer_files')
 
+
 class EmpiarMappingError(Exception):
     """To raise it when we can't map Scipion data to EMPIAR data,
     e.g. we don't manage to assign an EMPIAR category to an image set."""
     pass
+
 
 class EmpiarDepositor(EMProtocol):
     """
@@ -190,7 +193,7 @@ class EmpiarDepositor(EMProtocol):
         self.entryID = String()
         self.uniqueDir = String()
 
-    # --------------- DEFINE param functions ---------------
+    # --------------- DEFINE param functions ----------------------------------
 
     def _defineParams(self, form):
         form.addSection(label='Entry')
@@ -200,41 +203,67 @@ class EmpiarDepositor(EMProtocol):
                            "(it will just be created locally).")
         form.addParam("viewer", params.BooleanParam,
                       label="Deploy workflow viewer locally", default=False,
-                      help="Set to true to deploy the workflow viewer locally (in http://localhost:<port chosen>) to understand how it will look in EMPIAR.\nWhen you want to stop it, you will have to do it manually by running in your terminal something like: lsof -i tcp:<port chosen> | awk 'NR > 1 {print $2}' | xargs kill")
-        form.addParam("port", params.IntParam, label="Viewer port", default=9000, condition="viewer",
-                      help="The workflow web viewer will be deployed at this port in your local machine. Choose an available one.")
+                      help="Set to true to deploy the workflow viewer locally "
+                           "(in http://localhost:<port chosen>) to understand how "
+                           "it will look in EMPIAR.\nWhen you want to stop it, "
+                           "you will have to do it manually by running in your "
+                           "terminal something like: lsof -i tcp:<port chosen> | "
+                           "awk 'NR > 1 {print $2}' | xargs kill")
+        form.addParam("port", params.IntParam, label="Viewer port",
+                      default=9000, condition="viewer",
+                      help="The workflow web viewer will be deployed at this "
+                           "port in your local machine. Choose an available one.")
         form.addParam("resume", params.BooleanParam,
-                      label="Update existing entry", default=False, condition='deposit',
+                      label="Update existing entry", default=False,
+                      condition='deposit',
                       help="Is this a continuation of a previous deposition?")
         form.addParam("submit", params.BooleanParam,
                       label="Submit", default=False, condition='deposit',
-                      help="Is this the last entry update? If so, the EMPIAR entry will be submitted and no future changes can be done (except for providing the EMDB codes related with the EMPIAR entry).")
+                      help="Is this the last entry update? If so, the EMPIAR "
+                           "entry will be submitted and no future changes can "
+                           "be done (except for providing the EMDB codes related "
+                           "with the EMPIAR entry).")
         form.addParam('jsonTemplate', params.PathParam,
                       label="Custom json (Optional)", allowsNull=True,
-                      help="Path to a customized template of the EMPIAR submission json, if you don't want to use the "
+                      help="Path to a customized template of the EMPIAR "
+                           "submission json, if you don't want to use the "
                            "default one.")
-        form.addParam('entryTopLevel', params.StringParam, label="Top level folder",
+        form.addParam('entryTopLevel', params.StringParam,
+                      label="Top level folder",
                       validators=[params.NonEmpty], important=True,
-                      help="How you want to name the top level folder of the EMPIAR entry. \n This should be a "
-                           "simple and descriptive name without special characters (:,?, spaces, etc). ")
-        form.addParam('entryTitle', params.StringParam, label="Entry title", important=True,
-                      help="EMPIAR entry title. This should not be empty if not using a custom template.")
-        form.addParam('entryAuthor', params.StringParam, label="Entry author", important=True,
-                      help='EMPIAR entry author in the form "LastName, Initials" e.g. Smith, JW\n'
-                           'If more than one author is provided, put a semicolon between them. e.g. Smith, JW; Winter, A\n'
-                           'This should not be empty if not using a custom template.')
-        form.addParam('experimentType', params.EnumParam, label="Experiment type",
+                      help="How you want to name the top level folder of the "
+                           "EMPIAR entry. \n This should be a "
+                           "simple and descriptive name without special "
+                           "characters (:,?, spaces, etc). ")
+        form.addParam('entryTitle', params.StringParam,
+                      label="Entry title", important=True,
+                      help="EMPIAR entry title. This should not be empty "
+                           "if not using a custom template.")
+        form.addParam('entryAuthor', params.StringParam,
+                      label="Entry author", important=True,
+                      help='EMPIAR entry author in the form "LastName, '
+                           'Initials" e.g. Smith, JW\nIf more than one author '
+                           'is provided, put a semicolon between them. e.g. '
+                           'Smith, JW; Winter, A\nThis should not be empty '
+                           'if not using a custom template.')
+        form.addParam('experimentType', params.EnumParam,
+                      label="Experiment type",
                       choices=self._experimentTypes, default=2, important=True,
                       help="EMPIAR experiment type:\n"
                            "1 - image data collected using soft x-ray tomography\n"
-                           "2 - simulated data, for instance, created using InSilicoTEM \n"
-                           "(note: we only accept simulated data in special circumstances such as test/training sets \n"
-                           "for validation challenges: you need to ask for and be granted permission PRIOR to deposition \n"
+                           "2 - simulated data, for instance, created using "
+                           "InSilicoTEM\n(note: we only accept simulated data "
+                           "in special circumstances such as test/training sets\n"
+                           "for validation challenges: you need to ask for and "
+                           "be granted permission PRIOR to deposition\n"
                            "otherwise the dataset will be rejected)\n"
-                           "3 - raw image data relating to structures deposited to the Electron Microscopy Data Bank\n"
-                           "4 - image data collected using serial block-face scanning electron microscopy \n"
-                           "    (like the Gatan 3View system)\n"
-                           "5 - image data collected using focused ion beam scanning electron microscopy\n"
+                           "3 - raw image data relating to structures deposited "
+                           "to the Electron Microscopy Data Bank\n"
+                           "4 - image data collected using serial block-face "
+                           "scanning electron microscopy\n(like the Gatan "
+                           "3View system)\n"
+                           "5 - image data collected using focused ion beam "
+                           "scanning electron microscopy\n"
                            "6 - integrative hybrid modelling data\n"
                            "7 - correlative light-electron microscopy\n"
                            "8 - correlative light X-ray microscopy\n"
@@ -249,14 +278,19 @@ class EmpiarDepositor(EMProtocol):
                            "HO - delay release of entry by one year from the date of deposition"
                       )
 
-        form.addParam('citations', params.FileParam, label='Citations bibtex', help="File containing a bibtex with citations.")
-        form.addParam('workflowHubURLs', params.StringParam, label="WorkflowHub URL/DOI (Optional)", allowsNull=True,
-                      help="If this analysis is based on a/several WorkflowHub entry/ies you can provide the link/s separated by comma.")
+        form.addParam('citationsBib', params.FileParam,
+                      label='Citations bibtex',
+                      help="File containing a bibtex with citations.")
+        form.addParam('workflowHubURLs', params.StringParam,
+                      label="WorkflowHub URL/DOI (Optional)", allowsNull=True,
+                      help="If this analysis is based on a/several WorkflowHub "
+                           "entry/ies you can provide the link/s separated by comma.")
 
         form.addSection(label='Image sets')
         self.inputSetsParam = form.addParam('inputSets', params.MultiPointerParam,
                                             label="Input set", important=True,
-                                            pointerClass=','.join(self._imageSetCategories.keys()), minNumObjects=1,
+                                            pointerClass=','.join(self._imageSetCategories.keys()),
+                                            minNumObjects=1,
                                             help='Select one set (of micrographs, particles,'
                                                  ' volumes, etc.) to be deposited to EMPIAR.')
         # form.addParam('micSet', params.PointerParam, pointerClass='SetOfMicrographs,SetOfMovies,SetOfParticles',
@@ -277,11 +311,14 @@ class EmpiarDepositor(EMProtocol):
                       help="PI Email address e.g. jperez@org.es. "
                            "This should not be empty if not using a custom template.")
         form.addParam('piPost', params.StringParam, label="Post or zip",
-                      help="Post or ZIP code. This should not be empty if not using a custom template.")
+                      help="Post or ZIP code. This should not be empty if "
+                           "not using a custom template.")
         form.addParam('piTown', params.StringParam, label="Town or city",
-                      help="Town or city name. This should not be empty if not using a custom template.")
+                      help="Town or city name. This should not be empty if "
+                           "not using a custom template.")
         form.addParam('piCountry', params.StringParam, label="Country",
-                      help="Two letter country code eg. ES. This should not be empty if not using a custom template."
+                      help="Two letter country code eg. ES. This should "
+                           "not be empty if not using a custom template."
                            "\nValid country codes are %s" % " ".join(self._countryCodes))
 
         form.addSection(label="Corresponding Author")
@@ -298,37 +335,46 @@ class EmpiarDepositor(EMProtocol):
                       help="Corresponding author's Email address e.g. jperez@org.es. "
                            "This should not be empty if not using a custom template.")
         form.addParam('caPost', params.StringParam, label="Post or zip",
-                      help="Post or ZIP code. This should not be empty if not using a custom template.")
+                      help="Post or ZIP code. This should not be empty if "
+                           "not using a custom template.")
         form.addParam('caTown', params.StringParam, label="Town or city",
-                      help="Town or city name. This should not be empty if not using a custom template.")
+                      help="Town or city name. This should not be empty if "
+                           "not using a custom template.")
         form.addParam('caCountry', params.StringParam, label="Country",
-                      help="Two letter country code e.g. ES. This should not be empty if not using a custom template."
+                      help="Two letter country code e.g. ES. This should not "
+                           "be empty if not using a custom template."
                            "\nValid country codes are %s" % " ".join(self._countryCodes))
 
         form.addSection(label="Transfer entry ownership")
         form.addParam("ownershipBasedOn", params.EnumParam, label="Based on",
-                      choices=self._grantOwnershipBasedOn, default=0, important=True,
-                      help="You may want to transfer EMPIAR entry ownership to other user. Here you specify if you are providing the user username, email or ORCiD.")
-        form.addParam("newOwnerId", params.StringParam, label="User ID", important=True,
+                      choices=self._grantOwnershipBasedOn,
+                      default=0, important=True,
+                      help="You may want to transfer EMPIAR entry ownership to "
+                           "other user. Here you specify if you are providing "
+                           "the user username, email or ORCiD.")
+        form.addParam("newOwnerId", params.StringParam,
+                      label="User ID", important=True,
                       help="The user username, email or ORCiD.")
 
         form.addSection(label="EMDB codes (post-submission request)")
-        form.addParam('EMDBrefs', params.StringParam, label="EMDB codes", help="If you want to request to EMPIAR annotators to update the EMPIAR entry (already submitted) with the EMDB accesion codes, you can provide them here separated by comma.")
+        form.addParam('EMDBrefs', params.StringParam, label="EMDB codes",
+                      help="If you want to request to EMPIAR annotators to "
+                           "update the EMPIAR entry (already submitted) with "
+                           "the EMDB accesion codes, you can provide them here "
+                           "separated by comma.")
 
-    # --------------- INSERT steps functions ----------------
-
+    # --------------- INSERT steps functions ----------------------------------
     def _insertAllSteps(self):
         if self.EMDBrefs != '':
-            self._insertFunctionStep('provideEMDBcodesStep')
+            self._insertFunctionStep(self.provideEMDBcodesStep)
         else:
-            self._insertFunctionStep('createDepositionStep')
+            self._insertFunctionStep(self.createDepositionStep)
             if self.viewer:
-                self._insertFunctionStep('deployWorkflowViewerStep')
+                self._insertFunctionStep(self.deployWorkflowViewerStep)
             if self.deposit:
-                self._insertFunctionStep('makeDepositionStep')
+                self._insertFunctionStep(self.makeDepositionStep)
 
-    # --------------- STEPS functions -----------------------
-
+    # --------------- STEPS functions -----------------------------------------
     def createDepositionStep(self):
         # make folder in extra
         pwutils.makePath(self._getExtraPath(self.entryTopLevel.get()))
@@ -363,8 +409,8 @@ class EmpiarDepositor(EMProtocol):
             print("Imagesets is not empty")
             depoDict[self.IMGSET_KEY] = imageSets
 
-        if self.citations.get() is not None:
-            file = open(self.citations.get(), "r")
+        if self.citationsBib.get() is not None:
+            file = open(self.citationsBib.get(), "r")
             citationJson = json.load(file)
             #cita = pwutils.parseBibTex(str)
             #authors = cita['author'].split()
@@ -388,20 +434,28 @@ class EmpiarDepositor(EMProtocol):
         self._store()
         self.validateDepoJson(depoDict)
 
-
     def deployWorkflowViewerStep(self):
         pwutils.makePath(self._getExtraPath(self.DIR_VIEWER))
         # create links to static viewer files
-        cmd = "cd %s && ln -s %s && ln -s %s && ln -s %s && ln -s %s && ln -s %s" % (self._getExtraPath(self.DIR_VIEWER), '/'.join((VIEWER_FILES, 'css')), '/'.join((VIEWER_FILES, 'js')), '/'.join((VIEWER_FILES, 'index.html')), '/'.join((VIEWER_FILES, 'img')), '/'.join((VIEWER_FILES, 'scipion-workflow.html')))
+        cmd = "cd %s && ln -s %s && ln -s %s && ln -s %s && ln -s %s && ln -s %s" % (
+            self._getExtraPath(self.DIR_VIEWER), '/'.join((VIEWER_FILES, 'css')),
+            '/'.join((VIEWER_FILES, 'js')), '/'.join((VIEWER_FILES, 'index.html')),
+            '/'.join((VIEWER_FILES, 'img')), '/'.join((VIEWER_FILES, 'scipion-workflow.html')))
         subprocess.run(cmd, shell=True)
         # create links to 'workflow.json' file and 'images_representation' thumbnails folder
-        cmd = "cd %s && ln -s %s && ln -s %s" % (self._getExtraPath(self.DIR_VIEWER), os.path.join(self.getProject().path, self.getTopLevelPath(self.DIR_IMAGES)), os.path.join(self.getProject().path, self.getTopLevelPath(self.OUTPUT_WORKFLOW)))
+        cmd = "cd %s && ln -s %s && ln -s %s" % (self._getExtraPath(self.DIR_VIEWER),
+                                                 os.path.join(self.getProject().path,
+                                                              self.getTopLevelPath(self.DIR_IMAGES)),
+                                                 os.path.join(self.getProject().path,
+                                                              self.getTopLevelPath(self.OUTPUT_WORKFLOW)))
         subprocess.run(cmd, shell=True)
         # serve index.html
-        existing_deployment = subprocess.run("lsof -i tcp:%s | awk 'NR > 1 {print $2}'" % self.port, shell=True, stdout=subprocess.PIPE)
-        if existing_deployment.stdout.decode('utf-8')!='':
+        existing_deployment = subprocess.run("lsof -i tcp:%s | awk 'NR > 1 {print $2}'" %
+                                             self.port, shell=True, stdout=subprocess.PIPE)
+        if existing_deployment.stdout.decode('utf-8') !='':
             subprocess.run("kill -9 %s" % existing_deployment.stdout.decode('utf-8'), shell=True)
-        cmd = "cd %s && python3 -m http.server %s" % (os.path.join(self.getProject().path, self._getExtraPath(self.DIR_VIEWER)), self.port)
+        cmd = "cd %s && python3 -m http.server %s" % (os.path.join(self.getProject().path,
+                                                                   self._getExtraPath(self.DIR_VIEWER)), self.port)
         subprocess.Popen(cmd, shell=True)
         print("Workflow web viewer deployed at: http://localhost:%s" % self.port)
 
@@ -428,7 +482,8 @@ class EmpiarDepositor(EMProtocol):
         self._store()
 
     def provideEMDBcodesStep(self):
-        # This function requests to EMPIAR annotators a post-submission change for provide the EMDB entry/ies code/s related with the EMPIAR entry
+        # This function requests to EMPIAR annotators a post-submission change
+        # for provide the EMDB entry/ies code/s related with the EMPIAR entry
         requests.packages.urllib3.disable_warnings()
         url = 'https://wwwdev.ebi.ac.uk/pdbe/emdb/external_test/master/empiar/deposition/api/v1/request_changes/' if (EMPIAR_DEVEL_MODE in os.environ and os.environ[EMPIAR_DEVEL_MODE] == '1') else 'https://www.ebi.ac.uk/pdbe/emdb/empiar/deposition/api/v1/request_changes/'
         data = {'entry_id': str(self.entryID), 'msg': 'I would like to update this entry with the EMDB code/s: ' + self.EMDBrefs.get()}
@@ -439,9 +494,7 @@ class EmpiarDepositor(EMProtocol):
         else:
             print('The request to EMPIAR annotators for adding the EMDB entry/ies code/s was not successful')
 
-
-    # --------------- INFO functions -------------------------
-
+    # --------------- INFO functions ------------------------------------------
     def _validate(self):
         errors = []
         if self.deposit:
@@ -452,7 +505,8 @@ class EmpiarDepositor(EMProtocol):
                 errors.append("Environment variable %s not set." % ASPERA_PASS)
 
             if not os.path.exists(Plugin.getVar(ASCP_PATH)):
-                errors.append("Variable %s points to %s (aspera client) but it does not exists." % (ASCP_PATH, Plugin.getVar(ASCP_PATH)))
+                errors.append("Variable %s points to %s (aspera client) but "
+                              "it does not exists." % (ASCP_PATH, Plugin.getVar(ASCP_PATH)))
 
             if errors:
                 errors.append("Please review the setup section at %s ." % Plugin.getUrl())
@@ -476,7 +530,7 @@ class EmpiarDepositor(EMProtocol):
     def _methods(self):
         return []
 
-    # -------------------- UTILS functions -------------------------
+    # -------------------- UTILS functions ------------------------------------
 
     def getTopLevelPath(self, *paths):
         return os.path.join(self._getExtraPath(self.entryTopLevel.get()), *paths)
@@ -509,13 +563,13 @@ class EmpiarDepositor(EMProtocol):
         for prot in workflowProts:
             # Get summary and add input and output information
             summary = prot.summary()
-            for a, input in prot.iterInputAttributes():
-                if input.isPointer():
+            for a, item in prot.iterInputAttributes():
+                if item.isPointer():
                     try:
-                        inputLabel = ' (from %s) ' % protDicts[int(input.getUniqueId().split('.')[0])]['object.label']
+                        inputLabel = ' (from %s) ' % protDicts[int(item.getUniqueId().split('.')[0])]['object.label']
                     except:
                         inputLabel = ''
-                summary.append("Input: %s%s- %s\n" % (input.getUniqueId() if input.isPointer() else input.getObjName(), inputLabel, str(input.get())))
+                summary.append("Input: %s%s- %s\n" % (item.getUniqueId() if item.isPointer() else item.getObjName(), inputLabel, str(item.get())))
 
             protDicts[prot.getObjId()]['output'] = []
             num = 0
@@ -530,7 +584,8 @@ class EmpiarDepositor(EMProtocol):
             outputs = []
             logs = list(prot.getLogPaths())
             if pwutils.exists(logs[0]):
-                logPath = self.getTopLevelPath(self.DIR_IMAGES, "%s_%s.log" % (prot.getObjId(), prot.getClassName()))
+                logPath = self.getTopLevelPath(self.DIR_IMAGES,
+                                               "%s_%s.log" % (prot.getObjId(), prot.getClassName()))
                 pwutils.copyFile(logs[0], logPath)
                 outputs = logPath
 
@@ -574,7 +629,6 @@ class EmpiarDepositor(EMProtocol):
         return True
 
     # --------------- imageSet utils -------------------------
-
     def getEmpiarCategory(self, imageSet):
         className = imageSet.getClassName()
         category = self._imageSetCategories.get(className, None)
@@ -614,7 +668,9 @@ class EmpiarDepositor(EMProtocol):
         micSetDict[self.IMGSET_VOXEL_TYPE] = "('%s', '%s')" % self.getVoxelType(firstImg)
         micSetDict[self.IMGSET_PIXEL_WIDTH] = imageSet.getSamplingRate()
         micSetDict[self.IMGSET_PIXEL_HEIGHT] = imageSet.getSamplingRate()
-        micSetDict[self.IMGSET_DETAILS] = "%s/%s/%s" % (self.ENTRY_DIR, self.entryTopLevel.get(), os.path.basename(self.workflowPath.get()))
+        micSetDict[self.IMGSET_DETAILS] = "%s/%s/%s" % (self.ENTRY_DIR,
+                                                        self.entryTopLevel.get(),
+                                                        os.path.basename(self.workflowPath.get()))
         micSetDict[self.IMGSET_WIDTH] = dims[0]
         micSetDict[self.IMGSET_HEIGHT] = dims[1]
         return micSetDict
@@ -633,15 +689,17 @@ class EmpiarDepositor(EMProtocol):
 
     def getScipionWorkflow(self):
         workflowDict = copy.deepcopy(self._workflowTemplate)
-        workflowDict[self.SCIPION_WORKFLOW] = "%s/%s/%s" % (self.ENTRY_DIR, self.entryTopLevel.get(), os.path.basename(self.workflowPath.get()))
+        workflowDict[self.SCIPION_WORKFLOW] = "%s/%s/%s" % (self.ENTRY_DIR,
+                                                            self.entryTopLevel.get(),
+                                                            os.path.basename(self.workflowPath.get()))
         return workflowDict
 
     def getOutputDict(self, output):
         self.outputName = output.getObjName()
-        outputDict = {}
-        outputDict[self.OUTPUT_NAME] = output.getObjName()
-        outputDict[self.OUTPUT_TYPE] = output.getClassName()
-
+        outputDict = {
+            self.OUTPUT_NAME: output.getObjName(),
+            self.OUTPUT_TYPE: output.getClassName()
+        }
         items = []
 
         # If output is a Set get a list with all items
@@ -653,13 +711,18 @@ class EmpiarDepositor(EMProtocol):
                 for micrograph in output.getMicrographs(): # get the first three micrographs
                     count += 1
                     # apply a low pass filter
-                    args = " -i %s -o %s --fourier low_pass %f" % (micrograph.getLocation()[1], self._getTmpPath(os.path.basename(micrograph.getFileName())), 0.05)
+                    args = " -i %s -o %s --fourier low_pass %f" % (micrograph.getLocation()[1],
+                                                                   self._getTmpPath(os.path.basename(micrograph.getFileName())), 0.05)
                     getEnviron = Domain.importFromPlugin('xmipp3', 'Plugin', doRaise=True).getEnviron
                     self.runJob('xmipp_transform_filter', args, env=getEnviron())
                     # save jpg
-                    repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.replaceBaseExt(micrograph.getFileName(), 'jpg')))
-                    self._ih.convert(self._getTmpPath(os.path.basename(micrograph.getFileName())), os.path.join(self.getProject().path, repPath))
-                    coordinatesDict[micrograph.getMicName()] = {'path': repPath, 'Xdim': micrograph.getXDim(), 'Ydim': micrograph.getYDim()}
+                    repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (
+                        self.outputName, pwutils.replaceBaseExt(micrograph.getFileName(), 'jpg')))
+
+                    self._ih.convert(self._getTmpPath(os.path.basename(micrograph.getFileName())),
+                                     os.path.join(self.getProject().path, repPath))
+                    coordinatesDict[micrograph.getMicName()] = {'path': repPath, 'Xdim': micrograph.getXDim(),
+                                                                'Ydim': micrograph.getYDim()}
 
                     items.append({self.ITEM_REPRESENTATION: repPath})
                     if count == 3: break;
@@ -688,7 +751,8 @@ class EmpiarDepositor(EMProtocol):
                     items.append(itemDict)
                     count += 1
                     # In some types get only a limited number of items
-                    if (isinstance(item, Micrograph) or isinstance(item, Movie) or isinstance(item, CTFModel)) and count == 3: break;
+                    if (isinstance(item, Micrograph) or isinstance(item, Movie) or
+                        isinstance(item, CTFModel)) and count == 3: break;
                     if isinstance(item, Particle) and count == 15: break;
 
         # If it is a single object then only one item is present
@@ -729,7 +793,8 @@ class EmpiarDepositor(EMProtocol):
 
             elif isinstance(item, Class3D):
                 # Get all slices in x,y and z directions of representative to represent the class
-                repDir = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.removeBaseExt(item.getRepresentative().getFileName())))
+                repDir = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName,
+                                                                          pwutils.removeBaseExt(item.getRepresentative().getFileName())))
                 pwutils.makePath(repDir)
                 if item.getFileName().endswith('.mrc'):
                     item.setFileName(item.getFileName() + ':mrc')
@@ -752,7 +817,8 @@ class EmpiarDepositor(EMProtocol):
 
             elif isinstance(item, Volume):
                 # Get all slices in x,y and z directions to represent the volume
-                repDir = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.removeBaseExt(item.getFileName())))
+                repDir = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName,
+                                                                          pwutils.removeBaseExt(item.getFileName())))
                 pwutils.makePath(repDir)
                 if item.getFileName().endswith('.mrc'):
                     item.setFileName(item.getFileName() + ':mrc')
@@ -767,7 +833,8 @@ class EmpiarDepositor(EMProtocol):
 
             elif isinstance(item, Image):
                 # use Location as item representation
-                repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s_%s' % (self.outputName, item.getIndex(), pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
+                repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s_%s' % (
+                    self.outputName, item.getIndex(), pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
                 itemPath = item.getLocation()
                 # apply a low pass filter
                 if item.getFileName().endswith('.stk'):
