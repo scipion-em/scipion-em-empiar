@@ -133,7 +133,7 @@ class EmpiarDownloader(EMProtocol):
         stepDeps = [readXmlStepId, gainStepId]
 
         downloadStepId = self._insertFunctionStep(self.downloadImagesStep,
-                                                  prerequisites=[stepDeps])
+                                                  prerequisites=stepDeps)
         self._insertFunctionStep(self.closeOutput,
                                  prerequisites=[downloadStepId])
 

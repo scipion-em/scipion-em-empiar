@@ -62,6 +62,9 @@ def readFromEmpiar(entryId, fileExt):
 
     if not movieSets:
         raise FileNotFoundError(f"EMPIAR entry {entryId} does not have any movies!")
+    else:
+        print(f"Found {len(movieSets)} datasets from EMPIAR entry "
+              f"{entryId} that match filter={fileExt}. Will download the first one only!")
 
     samplingRate = movieSets[0]['pixel_width']                # images sampling rate
     dataFormat = movieSets[0]['data_format']                  # images format
@@ -147,9 +150,10 @@ class FTPDownloader:
                 if self.matchFilter(filename):
                     self._downloadFile(filename, downloadFolder, fileReadyCallback)
                 else:
-                    print(f"File does not match filter: {self.filter}")
+                    print(f"Skipping {filename}")
 
             if limit and limit == self.download_count:
+                print(f"File limit of {limit} reached!")
                 return
 
     def isFolder(self, folder):
@@ -173,11 +177,11 @@ class FTPDownloader:
 
         # Start actual downloading
         fhandle = open(finalPath, 'wb')
-        print(pwutils.yellowStr('Getting: ' + finalPath), flush=True)
+        print(pwutils.yellowStr('Downloading: ' + finalPath), flush=True)
 
         bytesDownloaded = 0
-        SIZE_10MB = 1024*1024*10
-        nextPrint = SIZE_10MB #  10MB
+        SIZE_100MB = 1024*1024*100
+        nextPrint = SIZE_100MB
 
         def downloadListener(chunk):
             nonlocal nextPrint
@@ -188,10 +192,10 @@ class FTPDownloader:
 
             fhandle.write(chunk)
 
-            # Print every 1024*10 ch
+            # Print every 100 MB
             if bytesDownloaded >= nextPrint:
                 print(pwutils.prettySize(bytesDownloaded), end="\r", flush=True)
-                nextPrint += SIZE_10MB
+                nextPrint += SIZE_100MB
 
         self.ftp_client.retrbinary('RETR ' + file, downloadListener)
         fhandle.close()
