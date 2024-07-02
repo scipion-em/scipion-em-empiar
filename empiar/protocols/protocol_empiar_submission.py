@@ -28,7 +28,6 @@ import os
 import json
 import copy
 import requests
-import re
 import subprocess
 from pkg_resources import resource_filename
 import jsonschema
@@ -40,13 +39,13 @@ from pyworkflow.protocol import params
 from pyworkflow.object import String, Set
 import pyworkflow.utils as pwutils
 from pyworkflow.project import config
-from pwem import emlib, Domain
+from pwem import Domain
 from pwem.protocols import EMProtocol
 from pwem.objects import (Class2D, Class3D, Image, CTFModel, Volume,
                           Micrograph, Movie, Particle, SetOfCoordinates)
 
 from empiar import Plugin
-from empiar.constants import ASPERA_PASS, EMPIAR_TOKEN, EMPIAR_DEVEL_MODE, ASCP_PATH
+from empiar.constants import *
 
 DEPOSITION_TEMPLATE = resource_filename('empiar', '/'.join(('templates', 'empiar_deposition_template.json')))
 DEPOSITION_SCHEMA = resource_filename('empiar_depositor', '/empiar_deposition.schema.json')
@@ -65,85 +64,14 @@ class EmpiarDepositor(EMProtocol):
     """
     _label = 'empiar deposition'
     _ih = emlib.image.ImageHandler()
-    _imageSetCategories = {
-        "SetOfMicrographs": "T1",
-        "SetOfMovies": 'T2',
-        # 'T3' : 'micrographs - focal pairs - unprocessed',
-        # 'T4' : 'micrographs - focal pairs - contrast inverted',
-        "SetOfMovieParticles": 'T5',  # : 'picked particles - single frame - unprocessed',
-        # 'T6' : 'picked particles - multiframe - unprocessed',
-        "SetOfParticles": 'T7',  # 'picked particles - single frame - processed',
-        # "SetOfMovieParticles": 'T8',  # : 'picked particles - multiframe - processed',
-        "TiltPairSet": 'T9',  # : 'tilt series',
-        "SetOfAverages": 'T10',  # 'class averages',
-        # 'OT' : 'other, in this case please specify the category in the second element.'
-    }
-    _imageSetFormats = {
-        'mrc': 'T1',
-        'mrcs': 'T2',
-        'tiff': 'T3',
-        'img': 'T4',  # imagic
-        'dm3': 'T5',
-        'dm4': 'T6',
-        'spi': 'T7',  # spider
+
+    _workflowTemplate = {
+        SCIPION_WORKFLOW: ""
     }
 
-    _experimentTypes = ['1', '2', '3', '4', '5', '6']
-    _releaseDateTypes = ["RE", "EP", "HP", "HO"]
-    _countryCodes = ['AD', 'AE', 'AF', 'AG', 'AI', 'AL', 'AM', 'AO', 'AQ', 'AR', 'AS', 'AT', 'AU',
-                     'AW', 'AZ', 'BA', 'BB', 'BD', 'BE', 'BF', 'BG', 'BH', 'BI', 'BJ', 'BL', 'BM',
-                     'BN', 'BO', 'BR', 'BS', 'BT', 'BV', 'BW', 'BY', 'BZ', 'CA', 'CC', 'CD', 'CF',
-                     'CG', 'CH', 'CI', 'CK', 'CL', 'CM', 'CN', 'CO', 'CR', 'CU', 'CV', 'CW', 'CX',
-                     'CY', 'CZ', 'DE', 'DJ', 'DK', 'DM', 'DO', 'DZ', 'EC', 'EE', 'EG', 'EH', 'ER',
-                     'ES', 'ET', 'FI', 'FJ', 'FK', 'FM', 'FO', 'FR', 'FX', 'GA', 'GB', 'GD', 'GE',
-                     'GF', 'GG', 'GH', 'GI', 'GL', 'GM', 'GN', 'GP', 'GQ', 'GR', 'GS', 'GT', 'GU',
-                     'GW', 'GY', 'HK', 'HM', 'HN', 'HR', 'HT', 'HU', 'ID', 'IE', 'IL', 'IM', 'IN',
-                     'IO', 'IQ', 'IR', 'IS', 'IT', 'JE', 'JM', 'JO', 'JP', 'KE', 'KG', 'KH', 'KI',
-                     'KM', 'KN', 'KP', 'KR', 'KW', 'KY', 'KZ', 'LA', 'LB', 'LC', 'LI', 'LK', 'LR',
-                     'LS', 'LT', 'LU', 'LV', 'LY', 'MA', 'MC', 'MD', 'ME', 'MF', 'MG', 'MH', 'MK',
-                     'ML', 'MM', 'MN', 'MO', 'MP', 'MQ', 'MR', 'MS', 'MT', 'MU', 'MV', 'MW', 'MX',
-                     'MY', 'MZ', 'NA', 'NC', 'NE', 'NF', 'NG', 'NI', 'NL', 'NO', 'NP', 'NR', 'NU',
-                     'NZ', 'OM', 'PA', 'PE', 'PF', 'PG', 'PH', 'PK', 'PL', 'PM', 'PN', 'PR', 'PS',
-                     'PT', 'PW', 'PY', 'QA', 'RE', 'RO', 'RS', 'RU', 'RW', 'SA', 'SB', 'SC', 'SD',
-                     'SE', 'SG', 'SH', 'SI', 'SJ', 'SK', 'SL', 'SM', 'SN', 'SO', 'SR', 'SS', 'ST',
-                     'SV', 'SX', 'SY', 'SZ', 'TC', 'TD', 'TF', 'TG', 'TH', 'TJ', 'TK', 'TL', 'TM',
-                     'TN', 'TO', 'TR', 'TT', 'TV', 'TW', 'TZ', 'UA', 'UG', 'UM', 'US', 'UY', 'UZ',
-                     'VA', 'VC', 'VE', 'VG', 'VI', 'VN', 'VU', 'WF', 'WS', 'XK', 'YE', 'YT', 'ZA',
-                     'ZM', 'ZW']
-
-    _voxelTypes = {
-        emlib.DT_UCHAR: 'T1',  # 'UNSIGNED BYTE'
-        emlib.DT_SCHAR: 'T2',  # 'SIGNED BYTE'
-        emlib.DT_USHORT: 'T3',  # 'UNSIGNED 16 BIT INTEGER'
-        emlib.DT_SHORT: 'T4',  # 'SIGNED 16 BIT INTEGER'
-        emlib.DT_UINT: 'T5',  # 'UNSIGNED 32 BIT INTEGER'
-        emlib.DT_INT: 'T6',  # 'SIGNED 32 BIT INTEGER'
-        emlib.DT_FLOAT: 'T7'  # '32 BIT FLOAT'
+    _outputTemplate = {
+        OUTPUT_NAME: ""
     }
-
-    _grantOwnershipBasedOn = ['username', 'email', 'ORCiD']
-
-    OUTPUT_DEPO_JSON = 'deposition.json'
-    OUTPUT_WORKFLOW = 'workflow.json'
-
-    ENTRY_DIR = 'data'
-
-    IMGSET_KEY = 'imagesets'
-    IMGSET_NAME = "name"
-    IMGSET_DIR = "directory"
-    IMGSET_CAT = "category"
-    IMGSET_HEADER_FORMAT = "header_format"
-    IMGSET_DATA_FORMAT = "data_format"
-    IMGSET_SIZE = "num_images_or_tilt_series"
-    IMGSET_FRAMES = "frames_per_image"
-    IMGSET_FRAME_MIN = "frame_range_min"
-    IMGSET_FRAME_MAX = "frame_range_max"
-    IMGSET_VOXEL_TYPE = "voxel_type"
-    IMGSET_PIXEL_WIDTH = "pixel_width"
-    IMGSET_PIXEL_HEIGHT = "pixel_height"
-    IMGSET_DETAILS = "details"
-    IMGSET_WIDTH = "image_width"
-    IMGSET_HEIGHT = "image_height"
 
     _imageSetTemplate = {
         IMGSET_NAME: "",
@@ -163,25 +91,7 @@ class EmpiarDepositor(EMProtocol):
         IMGSET_HEIGHT: 0
     }
 
-    OUTPUT_NAME = 'outputName'
-    OUTPUT_TYPE = 'outputType'
-    OUTPUT_ITEMS = 'outputItems'
-    OUTPUT_SIZE = 'outputSize'
-    ITEM_ID = 'item_id'
-    ITEM_REPRESENTATION = 'item_representation'
-    DIR_IMAGES = 'images_representation'
-    DIR_VIEWER = 'web-workflow-viewer'
-
-    _outputTemplate = {
-        OUTPUT_NAME: ""
-    }
-
-    SCIPION_WORKFLOW_KEY = 'workflow_file'
-    SCIPION_WORKFLOW = 'path'
-
-    _workflowTemplate = {
-        SCIPION_WORKFLOW: ""
-    }
+    _grantOwnershipBasedOn = ['username', 'email', 'ORCiD']
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
@@ -197,7 +107,7 @@ class EmpiarDepositor(EMProtocol):
         form.addSection(label='Entry')
         form.addParam("deposit", params.BooleanParam,
                       label="Make deposition", default=True,
-                      help="Set to false to avoid performing a deposition to EMPIAR "
+                      help="Set to False to avoid performing a deposition to EMPIAR "
                            "(it will just be created locally).")
         form.addParam("viewer", params.BooleanParam,
                       label="Deploy workflow viewer locally", default=False,
@@ -246,7 +156,7 @@ class EmpiarDepositor(EMProtocol):
                            'if not using a custom template.')
         form.addParam('experimentType', params.EnumParam,
                       label="Experiment type",
-                      choices=self._experimentTypes, default=2, important=True,
+                      choices=EXPERIMENTTYPES, default=2, important=True,
                       help="EMPIAR experiment type:\n"
                            "1 - image data collected using soft x-ray tomography\n"
                            "2 - simulated data, for instance, created using "
@@ -265,9 +175,12 @@ class EmpiarDepositor(EMProtocol):
                            "6 - integrative hybrid modelling data\n"
                            "7 - correlative light-electron microscopy\n"
                            "8 - correlative light X-ray microscopy\n"
-                           "9 - microcrystal electron diffraction")
+                           "9 - microcrystal electron diffraction\n"
+                           "11 - ATUM-SEM\n"
+                           "12 - Hard X-ray/X-ray microCT\n"
+                           "13 - ssE")
         form.addParam('releaseDate', params.EnumParam, label="Release date",
-                      choices=self._releaseDateTypes, default=0, important=True,
+                      choices=RELEASEDATETYPES, default=0, important=True,
                       help="EMPIAR release date:\n"
                            "Options for releasing entry to the public: \n"
                            "RE - directly after the submission has been processed\n"
@@ -275,7 +188,6 @@ class EmpiarDepositor(EMProtocol):
                            "HP - after the related primary citation has been published\n"
                            "HO - delay release of entry by one year from the date of deposition"
                       )
-
         form.addParam('citationsBib', params.FileParam,
                       label='Citations bibtex',
                       help="File containing a bibtex with citations.")
@@ -287,7 +199,7 @@ class EmpiarDepositor(EMProtocol):
         form.addSection(label='Image sets')
         self.inputSetsParam = form.addParam('inputSets', params.MultiPointerParam,
                                             label="Input set", important=True,
-                                            pointerClass=','.join(self._imageSetCategories.keys()),
+                                            pointerClass=','.join(IMAGESETCATEGORIES.keys()),
                                             minNumObjects=1,
                                             help='Select one set (of micrographs, particles,'
                                                  ' volumes, etc.) to be deposited to EMPIAR.')
@@ -317,7 +229,7 @@ class EmpiarDepositor(EMProtocol):
         form.addParam('piCountry', params.StringParam, label="Country",
                       help="Two letter country code eg. ES. This should "
                            "not be empty if not using a custom template."
-                           "\nValid country codes are %s" % " ".join(self._countryCodes))
+                           "\nValid country codes are %s" % " ".join(COUNTRYCODES))
 
         form.addSection(label="Corresponding Author")
         form.addParam('caFirstName', params.StringParam, label='First name',
@@ -341,7 +253,7 @@ class EmpiarDepositor(EMProtocol):
         form.addParam('caCountry', params.StringParam, label="Country",
                       help="Two letter country code e.g. ES. This should not "
                            "be empty if not using a custom template."
-                           "\nValid country codes are %s" % " ".join(self._countryCodes))
+                           "\nValid country codes are %s" % " ".join(COUNTRYCODES))
 
         form.addSection(label="Transfer entry ownership")
         form.addParam("ownershipBasedOn", params.EnumParam, label="Based on",
@@ -376,7 +288,7 @@ class EmpiarDepositor(EMProtocol):
     def createDepositionStep(self):
         # make folder in extra
         pwutils.makePath(self._getExtraPath(self.entryTopLevel.get()))
-        pwutils.makePath(self.getTopLevelPath(self.DIR_IMAGES))
+        pwutils.makePath(self.getTopLevelPath(DIR_IMAGES))
 
         # export workflow json
         self.exportWorkflow()
@@ -406,46 +318,38 @@ class EmpiarDepositor(EMProtocol):
         imageSets = self.processImageSets()
         if len(imageSets) > 0:
             print("Imagesets is not empty")
-            depoDict[self.IMGSET_KEY] = imageSets
+            depoDict[IMGSET_KEY] = imageSets
 
         if self.citationsBib.get() is not None:
             file = open(self.citationsBib.get(), "r")
             citationJson = json.load(file)
-            #cita = pwutils.parseBibTex(str)
-            #authors = cita['author'].split()
-            #for author in authors:
-            #    depoDict['authors'].append({'name':author.strip()})
-            #for attr in cita.keys():
-            #    depoDict[attr] = cita[attr]
             citationJson['editors'] = []
             depoDict['citation'][0] = citationJson
             file.close()
 
-        depoDict[self.SCIPION_WORKFLOW_KEY] = self.getScipionWorkflow()
-        depoJson = self.getTopLevelPath(self.OUTPUT_DEPO_JSON)
+        depoDict[SCIPION_WORKFLOW_KEY] = self.getScipionWorkflow()
+        depoJson = self.getTopLevelPath(OUTPUT_DEPO_JSON)
         with open(depoJson, 'w') as f:
-            # f.write(jsonStr.encode('utf-8'))
             json.dump(depoDict, f, indent=4)
-        # self.depositionJsonPath = depoJson
         self.depositionJsonPath.set(depoJson)
 
         self._store()
         self.validateDepoJson(depoDict)
 
     def deployWorkflowViewerStep(self):
-        pwutils.makePath(self._getExtraPath(self.DIR_VIEWER))
+        pwutils.makePath(self._getExtraPath(DIR_VIEWER))
         # create links to static viewer files
         cmd = "cd %s && ln -s %s && ln -s %s && ln -s %s && ln -s %s && ln -s %s" % (
-            self._getExtraPath(self.DIR_VIEWER), '/'.join((VIEWER_FILES, 'css')),
+            self._getExtraPath(DIR_VIEWER), '/'.join((VIEWER_FILES, 'css')),
             '/'.join((VIEWER_FILES, 'js')), '/'.join((VIEWER_FILES, 'index.html')),
             '/'.join((VIEWER_FILES, 'img')), '/'.join((VIEWER_FILES, 'scipion-workflow.html')))
         subprocess.run(cmd, shell=True)
         # create links to 'workflow.json' file and 'images_representation' thumbnails folder
-        cmd = "cd %s && ln -s %s && ln -s %s" % (self._getExtraPath(self.DIR_VIEWER),
+        cmd = "cd %s && ln -s %s && ln -s %s" % (self._getExtraPath(DIR_VIEWER),
                                                  os.path.join(self.getProject().path,
-                                                              self.getTopLevelPath(self.DIR_IMAGES)),
+                                                              self.getTopLevelPath(DIR_IMAGES)),
                                                  os.path.join(self.getProject().path,
-                                                              self.getTopLevelPath(self.OUTPUT_WORKFLOW)))
+                                                              self.getTopLevelPath(OUTPUT_WORKFLOW)))
         subprocess.run(cmd, shell=True)
         # serve index.html
         existing_deployment = subprocess.run("lsof -i tcp:%s | awk 'NR > 1 {print $2}'" %
@@ -453,7 +357,7 @@ class EmpiarDepositor(EMProtocol):
         if existing_deployment.stdout.decode('utf-8') != '':
             subprocess.run("kill -9 %s" % existing_deployment.stdout.decode('utf-8'), shell=True)
         cmd = "cd %s && python3 -m http.server %s" % (os.path.join(self.getProject().path,
-                                                                   self._getExtraPath(self.DIR_VIEWER)), self.port)
+                                                                   self._getExtraPath(DIR_VIEWER)), self.port)
         subprocess.Popen(cmd, shell=True)
         print("Workflow web viewer deployed at: http://localhost:%s" % self.port)
 
@@ -500,17 +404,18 @@ class EmpiarDepositor(EMProtocol):
         errors = []
         if self.deposit:
             if EMPIAR_TOKEN not in os.environ:
-                errors.append("Environment variable %s not set." % EMPIAR_TOKEN)
+                errors.append(f"Environment variable {EMPIAR_TOKEN} not set.")
 
             if ASPERA_PASS not in os.environ:
-                errors.append("Environment variable %s not set." % ASPERA_PASS)
+                errors.append(f"Environment variable {ASPERA_PASS} not set.")
 
             if not os.path.exists(Plugin.getVar(ASCP_PATH)):
-                errors.append("Variable %s points to %s (aspera client) but "
-                              "it does not exists." % (ASCP_PATH, Plugin.getVar(ASCP_PATH)))
+                errors.append(f"Variable {ASCP_PATH} points to "
+                              f"{Plugin.getVar(ASCP_PATH)} (aspera client) but "
+                              "it does not exist." )
 
             if errors:
-                errors.append("Please review the setup section at %s ." % Plugin.getUrl())
+                errors.append(f"Please review the setup section at {Plugin.getUrl()}")
 
         return errors
 
@@ -521,8 +426,8 @@ class EmpiarDepositor(EMProtocol):
         summary = []
         if self.depositionJsonPath.get():
             summary.append('Generated deposition files:')
-            summary.append('- [[%s][Scipion workflow]]' % self.workflowPath)
-            summary.append('- [[%s][Deposition json]]' % self.depositionJsonPath)
+            summary.append(f'- [[{self.workflowPath}][Scipion workflow]]')
+            summary.append(f'- [[{self.depositionJsonPath}][Deposition json]]')
         else:
             summary.append('No deposition files generated yet')
 
@@ -534,12 +439,14 @@ class EmpiarDepositor(EMProtocol):
     # -------------------- UTILS functions ------------------------------------
 
     def getTopLevelPath(self, *paths):
-        return os.path.join(self._getExtraPath(self.entryTopLevel.get()), *paths)
+        return self._getExtraPath(self.entryTopLevel.get(), *paths)
 
     def exportWorkflow(self):
         project = self.getProject()
-        workflowProts = [p for p in project.getRuns()]  # workflow prots are all prots if no json provided
-        workflowJsonPath = os.path.join(project.path, self.getTopLevelPath(self.OUTPUT_WORKFLOW))
+        workflowProts = [p for p in project.getRuns()]
+        # workflow prots are all prots if no json provided
+        workflowJsonPath = os.path.join(project.path,
+                                        self.getTopLevelPath(OUTPUT_WORKFLOW))
         protDicts = project.getProtocolsDict(workflowProts)
 
         # labels and colors
@@ -560,25 +467,26 @@ class EmpiarDepositor(EMProtocol):
                 for label in protConfigInfo['labels']:
                     protsLabelsDict[protConfigInfo['id']].append(label)
 
-        # Add extra info to protocosDict
+        # Add extra info to protocolsDict
         for prot in workflowProts:
             # Get summary and add input and output information
             summary = prot.summary()
             for a, item in prot.iterInputAttributes():
                 if item.isPointer():
                     try:
-                        inputLabel = ' (from %s) ' % protDicts[int(item.getUniqueId().split('.')[0])]['object.label']
+                        inputLabel = protDicts[int(item.getUniqueId().split('.')[0])]['object.label']
+                        inputLabel = f" (from {inputLabel}) "
                     except:
                         inputLabel = ''
-                summary.append("Input: %s%s- %s\n" % (
-                    item.getUniqueId() if item.isPointer() else item.getObjName(), inputLabel, str(item.get())))
+                itemName = item.getUniqueId() if item.isPointer() else item.getObjName()
+                summary.append(f"Input: {itemName}{inputLabel} - {str(item.get())}\n")
 
             protDicts[prot.getObjId()]['output'] = []
-            num = 0
+
             for a, output in prot.iterOutputAttributes():
                 print('output key is %s' % a)
                 protDicts[prot.getObjId()]['output'].append(self.getOutputDict(output))
-                summary.append("Output: %s - %s\n" % (output.getObjName(), str(output)))
+                summary.append(f"Output: {output.getObjName()} - {str(output)}\n")
 
             protDicts[prot.getObjId()]['summary'] = ''.join(summary)
 
@@ -586,7 +494,7 @@ class EmpiarDepositor(EMProtocol):
             outputs = []
             logs = list(prot.getLogPaths())
             if pwutils.exists(logs[0]):
-                logPath = self.getTopLevelPath(self.DIR_IMAGES,
+                logPath = self.getTopLevelPath(DIR_IMAGES,
                                                "%s_%s.log" % (prot.getObjId(), prot.getClassName()))
                 pwutils.copyFile(logs[0], logPath)
                 outputs = logPath
@@ -601,13 +509,11 @@ class EmpiarDepositor(EMProtocol):
                     protDicts[prot.getObjId()]['labelColor'].append(labelsDict[label])
 
             # Get plugin and binary version
-            protDicts[prot.getObjId()]['plugin'] = prot.getClassPackageName()
-            if len(outputs) > 0:
-                with open(logPath) as log:
-                    for line in log:
-                        if re.search(r'plugin v', line):
-                            version = line.split(':')[1].replace(' ', '').replace('\n', '')
-                            protDicts[prot.getObjId()]['pluginVersion'] = version
+            protDicts[prot.getObjId()]['plugin'] = prot.getPlugin().getName()
+            package = self.getClassPackage()
+            if hasattr(package, "__version__"):
+                protDicts[prot.getObjId()]['pluginVersion'] = package.__version__
+            protDicts[prot.getObjId()]['pluginBinaryVersion'] = prot.getPlugin().getActiveVersion()
 
         for inputSetPointer in self.inputSets:
             inputSet = inputSetPointer.get()
@@ -627,31 +533,32 @@ class EmpiarDepositor(EMProtocol):
     def validateDepoJson(self, depoDict):
         with open(DEPOSITION_SCHEMA) as f:
             schema = json.load(f)
-        valid = jsonschema.validate(depoDict, schema)  # raises exception if not valid
-        return True
+        return jsonschema.validate(depoDict, schema)  # raises exception if not valid
 
     # --------------- imageSet utils -------------------------
     def getEmpiarCategory(self, imageSet):
         className = imageSet.getClassName()
-        category = self._imageSetCategories.get(className, None)
+        category = IMAGESETCATEGORIES.get(className, None)
         if category is None:
-            raise EmpiarMappingError('Could not assign an EMPIAR category to image set %s' % imageSet.getObjName())
+            raise EmpiarMappingError('Could not assign an EMPIAR '
+                                     f'category to image set {imageSet.getObjName()}')
         else:
             return category, ''
 
     def getEmpiarFormat(self, imagePath):
         ext = pwutils.getExt(imagePath).lower().strip('.')
-        imgFormat = self._imageSetFormats.get(ext, None)
+        imgFormat = IMAGESETFORMATS.get(ext, None)
         if imgFormat is None:
-            raise EmpiarMappingError('Image format not recognized: %s' % ext)
+            raise EmpiarMappingError(f'Image format not recognized: {ext}')
         else:
             return imgFormat, ''
 
     def getVoxelType(self, imageObj):
         dataType = self._ih.getDataType(imageObj)
-        empiarType = self._voxelTypes.get(dataType, None)
+        empiarType = VOXELTYPES.get(dataType, None)
         if empiarType is None:
-            raise EmpiarMappingError('Could not map voxel type for image %s' % imageObj.getFilename())
+            raise EmpiarMappingError('Could not map voxel type for '
+                                     f'image {imageObj.getFilename()}')
         else:
             return empiarType, ''
 
@@ -660,25 +567,25 @@ class EmpiarDepositor(EMProtocol):
         firstFileName = firstImg.getFileName()
         dims = imageSet.getDimensions()
         micSetDict = copy.deepcopy(self._imageSetTemplate)
-        micSetDict[self.IMGSET_NAME] = imageSet.getObjName()
-        micSetDict[self.IMGSET_DIR] = "%s/%s/%s" % (self.ENTRY_DIR, self.entryTopLevel.get(), imageSet.getObjName())
-        micSetDict[self.IMGSET_CAT] = "('%s', '%s')" % self.getEmpiarCategory(imageSet)
-        micSetDict[self.IMGSET_HEADER_FORMAT] = "('%s', '%s')" % self.getEmpiarFormat(firstFileName)
-        micSetDict[self.IMGSET_DATA_FORMAT] = "('%s', '%s')" % self.getEmpiarFormat(firstFileName)
-        micSetDict[self.IMGSET_SIZE] = len(imageSet)
-        micSetDict[self.IMGSET_FRAMES] = dims[2]
-        micSetDict[self.IMGSET_VOXEL_TYPE] = "('%s', '%s')" % self.getVoxelType(firstImg)
-        micSetDict[self.IMGSET_PIXEL_WIDTH] = imageSet.getSamplingRate()
-        micSetDict[self.IMGSET_PIXEL_HEIGHT] = imageSet.getSamplingRate()
-        micSetDict[self.IMGSET_DETAILS] = "%s/%s/%s" % (self.ENTRY_DIR,
-                                                        self.entryTopLevel.get(),
-                                                        os.path.basename(self.workflowPath.get()))
-        micSetDict[self.IMGSET_WIDTH] = dims[0]
-        micSetDict[self.IMGSET_HEIGHT] = dims[1]
+        micSetDict[IMGSET_NAME] = imageSet.getObjName()
+        micSetDict[IMGSET_DIR] = "%s/%s/%s" % (ENTRY_DIR, self.entryTopLevel.get(), imageSet.getObjName())
+        micSetDict[IMGSET_CAT] = "('%s', '%s')" % self.getEmpiarCategory(imageSet)
+        micSetDict[IMGSET_HEADER_FORMAT] = "('%s', '%s')" % self.getEmpiarFormat(firstFileName)
+        micSetDict[IMGSET_DATA_FORMAT] = "('%s', '%s')" % self.getEmpiarFormat(firstFileName)
+        micSetDict[IMGSET_SIZE] = len(imageSet)
+        micSetDict[IMGSET_FRAMES] = dims[2]
+        micSetDict[IMGSET_VOXEL_TYPE] = "('%s', '%s')" % self.getVoxelType(firstImg)
+        micSetDict[IMGSET_PIXEL_WIDTH] = imageSet.getSamplingRate()
+        micSetDict[IMGSET_PIXEL_HEIGHT] = imageSet.getSamplingRate()
+        micSetDict[IMGSET_DETAILS] = "%s/%s/%s" % (ENTRY_DIR,
+                                                   self.entryTopLevel.get(),
+                                                   os.path.basename(self.workflowPath.get()))
+        micSetDict[IMGSET_WIDTH] = dims[0]
+        micSetDict[IMGSET_HEIGHT] = dims[1]
         return micSetDict
 
     def processImageSets(self):
-        inputSets = [s.get() for s in self.inputSets]
+        inputSets = [s.get().clone() for s in self.inputSets]
         imgSetDicts = []
         for imgSet in inputSets:
             try:
@@ -691,22 +598,22 @@ class EmpiarDepositor(EMProtocol):
 
     def getScipionWorkflow(self):
         workflowDict = copy.deepcopy(self._workflowTemplate)
-        workflowDict[self.SCIPION_WORKFLOW] = "%s/%s/%s" % (self.ENTRY_DIR,
-                                                            self.entryTopLevel.get(),
-                                                            os.path.basename(self.workflowPath.get()))
+        workflowDict[SCIPION_WORKFLOW] = "%s/%s/%s" % (ENTRY_DIR,
+                                                       self.entryTopLevel.get(),
+                                                       os.path.basename(self.workflowPath.get()))
         return workflowDict
 
     def getOutputDict(self, output):
         self.outputName = output.getObjName()
         outputDict = {
-            self.OUTPUT_NAME: output.getObjName(),
-            self.OUTPUT_TYPE: output.getClassName()
+            OUTPUT_NAME: output.getObjName(),
+            OUTPUT_TYPE: output.getClassName()
         }
         items = []
 
         # If output is a Set get a list with all items
         if isinstance(output, Set):
-            outputDict[self.OUTPUT_SIZE] = output.getSize()
+            outputDict[OUTPUT_SIZE] = output.getSize()
             count = 0
             if isinstance(output, SetOfCoordinates):
                 coordinatesDict = {}
@@ -720,7 +627,7 @@ class EmpiarDepositor(EMProtocol):
                     getEnviron = Domain.importFromPlugin('xmipp3', 'Plugin', doRaise=True).getEnviron
                     self.runJob('xmipp_transform_filter', args, env=getEnviron())
                     # save jpg
-                    repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (
+                    repPath = self.getTopLevelPath(DIR_IMAGES, '%s_%s' % (
                         self.outputName, pwutils.replaceBaseExt(micrograph.getFileName(), 'jpg')))
 
                     self._ih.convert(self._getTmpPath(os.path.basename(micrograph.getFileName())),
@@ -728,7 +635,7 @@ class EmpiarDepositor(EMProtocol):
                     coordinatesDict[micrograph.getMicName()] = {'path': repPath, 'Xdim': micrograph.getXDim(),
                                                                 'Ydim': micrograph.getYDim()}
 
-                    items.append({self.ITEM_REPRESENTATION: repPath})
+                    items.append({ITEM_REPRESENTATION: repPath})
                     if count == 3:
                         break
 
@@ -767,7 +674,7 @@ class EmpiarDepositor(EMProtocol):
         else:
             items.append(self.getItemDict(output))
 
-        outputDict[self.OUTPUT_ITEMS] = items
+        outputDict[OUTPUT_ITEMS] = items
 
         return outputDict
 
@@ -779,13 +686,13 @@ class EmpiarDepositor(EMProtocol):
             if not value.isPointer():
                 itemDict[key] = str(value)
 
-        itemDict[self.ITEM_ID] = item.getObjId()
+        itemDict[ITEM_ID] = item.getObjId()
 
         try:
             # Get item representation
             if isinstance(item, Class2D):
                 # use representative as item representation
-                repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s_%s' % (
+                repPath = self.getTopLevelPath(DIR_IMAGES, '%s_%s_%s' % (
                     self.outputName, item.getRepresentative().getIndex(),
                     pwutils.replaceBaseExt(item.getRepresentative().getFileName(), 'jpg')))
                 itemPath = item.getRepresentative().getLocation()
@@ -799,13 +706,13 @@ class EmpiarDepositor(EMProtocol):
                     draw.text((5, H - 15), text, fill=(0, 255, 0))
                     image.save(repPath, quality=95)
 
-                itemDict[self.ITEM_REPRESENTATION] = repPath
+                itemDict[ITEM_REPRESENTATION] = repPath
 
             elif isinstance(item, Class3D):
                 # Get all slices in x,y and z directions of representative to represent the class
-                repDir = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName,
-                                                                          pwutils.removeBaseExt(
-                                                                              item.getRepresentative().getFileName())))
+                repDir = self.getTopLevelPath(DIR_IMAGES,
+                                              '%s_%s' % (self.outputName,
+                                                         pwutils.removeBaseExt(item.getRepresentative().getFileName())))
                 pwutils.makePath(repDir)
                 if item.getFileName().endswith('.mrc'):
                     item.setFileName(item.getFileName() + ':mrc')
@@ -824,12 +731,13 @@ class EmpiarDepositor(EMProtocol):
 
                 slices = [repDir + "/" + slice for slice in os.listdir(repDir)]
                 slices.sort()
-                itemDict[self.ITEM_REPRESENTATION] = str(slices)
+                itemDict[ITEM_REPRESENTATION] = str(slices)
 
             elif isinstance(item, Volume):
                 # Get all slices in x,y and z directions to represent the volume
-                repDir = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName,
-                                                                          pwutils.removeBaseExt(item.getFileName())))
+                repDir = self.getTopLevelPath(DIR_IMAGES,
+                                              '%s_%s' % (self.outputName,
+                                                         pwutils.removeBaseExt(item.getFileName())))
                 pwutils.makePath(repDir)
                 if item.getFileName().endswith('.mrc'):
                     item.setFileName(item.getFileName() + ':mrc')
@@ -840,12 +748,14 @@ class EmpiarDepositor(EMProtocol):
 
                 slices = [repDir + "/" + slice for slice in os.listdir(repDir)]
                 slices.sort()
-                itemDict[self.ITEM_REPRESENTATION] = str(slices)
+                itemDict[ITEM_REPRESENTATION] = str(slices)
 
             elif isinstance(item, Image):
                 # use Location as item representation
-                repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s_%s' % (
-                    self.outputName, item.getIndex(), pwutils.replaceBaseExt(item.getFileName(), 'jpg')))
+                repPath = self.getTopLevelPath(DIR_IMAGES,
+                                               '%s_%s_%s' % (self.outputName,
+                                                             item.getIndex(),
+                                                             pwutils.replaceBaseExt(item.getFileName(),'jpg')))
                 itemPath = item.getLocation()
                 # apply a low pass filter
                 if item.getFileName().endswith('.stk'):
@@ -857,35 +767,38 @@ class EmpiarDepositor(EMProtocol):
                     self.runJob('xmipp_transform_filter', args, env=getEnviron())
                     self._ih.convert(self._getTmpPath(os.path.basename(item.getFileName())),
                                      os.path.join(self.getProject().path, repPath))
-                itemDict[self.ITEM_REPRESENTATION] = repPath
+                itemDict[ITEM_REPRESENTATION] = repPath
 
             elif isinstance(item, CTFModel):
                 # if exists use ctfmodel_quadrant as item representation, in other case use psdFile
                 if item.hasAttribute('_xmipp_ctfmodel_quadrant'):
-                    repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (
-                        self.outputName, pwutils.replaceBaseExt(str(item._xmipp_ctfmodel_quadrant), 'jpg')))
+                    repPath = self.getTopLevelPath(DIR_IMAGES,
+                                                   '%s_%s' % (self.outputName,
+                                                              pwutils.replaceBaseExt(str(item._xmipp_ctfmodel_quadrant), 'jpg')))
                     itemPath = str(item._xmipp_ctfmodel_quadrant)
 
                 else:
-                    repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (
-                        self.outputName, pwutils.replaceBaseExt(item.getPsdFile(), 'jpg')))
+                    repPath = self.getTopLevelPath(DIR_IMAGES,
+                                                   '%s_%s' % (self.outputName,
+                                                              pwutils.replaceBaseExt(item.getPsdFile(), 'jpg')))
                     itemPath = item.getPsdFile()
 
                 self._ih.convert(itemPath, os.path.join(self.getProject().path, repPath))
-                itemDict[self.ITEM_REPRESENTATION] = repPath
+                itemDict[ITEM_REPRESENTATION] = repPath
 
             else:
                 # in any other case look for a representation on attributes
                 for key, value in attributes:
                     if os.path.exists(str(value)):
-                        repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (
-                            self.outputName, pwutils.replaceBaseExt(str(value), 'png')))
+                        repPath = self.getTopLevelPath(DIR_IMAGES,
+                                                       '%s_%s' % (self.outputName,
+                                                                  pwutils.replaceBaseExt(str(value), 'png')))
                         itemPath = str(value)
                         self._ih.convert(itemPath, os.path.join(self.getProject().path, repPath))
-                        itemDict[self.ITEM_REPRESENTATION] = repPath
+                        itemDict[ITEM_REPRESENTATION] = repPath
                         break
 
         except Exception as e:
-            print("Cannot obtain item representation for %s" % str(item))
+            print(f"Cannot obtain item representation for {str(item)}")
 
         return itemDict

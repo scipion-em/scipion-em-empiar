@@ -11,4 +11,4 @@ include CHANGES.txt
 include empiar/protocols.conf
 
 # Include templates
-include empiar/templates/*template
+include empiar/templates/*json
