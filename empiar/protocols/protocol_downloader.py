@@ -160,7 +160,7 @@ class EmpiarDownloader(EMProtocol):
 
             # Compose the remote file, without the server part -->
             # /empiar/world_availability/10200/data/Movies/CountRef_26_000_Oct04_16.13.54.mrc
-            remoteFile =self.gainUrl.get().split(FTP_EBI_AC_UK)[1]
+            remoteFile = self.gainUrl.get().split(FTP_EBI_AC_UK)[1]
 
             # get right part after the entry id and the slash -->
             # data/Movies/CountRef_26_000_Oct04_16.13.54.mrc

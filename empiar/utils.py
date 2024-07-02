@@ -177,7 +177,7 @@ class FTPDownloader:
 
         # Start actual downloading
         fhandle = open(finalPath, 'wb')
-        print(pwutils.yellowStr('Downloading: ' + finalPath), flush=True)
+        print(pwutils.yellowStr(f"Downloading: {finalPath}"), flush=True)
 
         bytesDownloaded = 0
         SIZE_100MB = 1024*1024*100

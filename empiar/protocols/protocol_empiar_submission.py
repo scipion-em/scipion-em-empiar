@@ -48,8 +48,6 @@ from pwem.objects import (Class2D, Class3D, Image, CTFModel, Volume,
 from empiar import Plugin
 from empiar.constants import ASPERA_PASS, EMPIAR_TOKEN, EMPIAR_DEVEL_MODE, ASCP_PATH
 
-
-
 DEPOSITION_TEMPLATE = resource_filename('empiar', '/'.join(('templates', 'empiar_deposition_template.json')))
 DEPOSITION_SCHEMA = resource_filename('empiar_depositor', '/empiar_deposition.schema.json')
 VIEWER_FILES = resource_filename('empiar', '/viewer_files')
@@ -65,29 +63,29 @@ class EmpiarDepositor(EMProtocol):
     """
     Deposits image sets to EMPIAR.
     """
-    _label = 'Empiar deposition'
+    _label = 'empiar deposition'
     _ih = emlib.image.ImageHandler()
     _imageSetCategories = {
-                              "SetOfMicrographs": "T1",
-                              "SetOfMovies": 'T2',
-                              # 'T3' : 'micrographs - focal pairs - unprocessed',
-                              # 'T4' : 'micrographs - focal pairs - contrast inverted',
-                              "SetOfMovieParticles": 'T5',  # : 'picked particles - single frame - unprocessed',
-                              # 'T6' : 'picked particles - multiframe - unprocessed',
-                              "SetOfParticles": 'T7',  # 'picked particles - single frame - processed',
-                              # "SetOfMovieParticles": 'T8',  # : 'picked particles - multiframe - processed',
-                              "TiltPairSet": 'T9',  # : 'tilt series',
-                              "SetOfAverages": 'T10',  # 'class averages',
-                              # 'OT' : 'other, in this case please specify the category in the second element.'
-                            }
+        "SetOfMicrographs": "T1",
+        "SetOfMovies": 'T2',
+        # 'T3' : 'micrographs - focal pairs - unprocessed',
+        # 'T4' : 'micrographs - focal pairs - contrast inverted',
+        "SetOfMovieParticles": 'T5',  # : 'picked particles - single frame - unprocessed',
+        # 'T6' : 'picked particles - multiframe - unprocessed',
+        "SetOfParticles": 'T7',  # 'picked particles - single frame - processed',
+        # "SetOfMovieParticles": 'T8',  # : 'picked particles - multiframe - processed',
+        "TiltPairSet": 'T9',  # : 'tilt series',
+        "SetOfAverages": 'T10',  # 'class averages',
+        # 'OT' : 'other, in this case please specify the category in the second element.'
+    }
     _imageSetFormats = {
-                           'mrc': 'T1',
-                           'mrcs': 'T2',
-                           'tiff': 'T3',
-                           'img': 'T4',  # imagic
-                           'dm3': 'T5',
-                           'dm4': 'T6',
-                           'spi': 'T7',  # spider
+        'mrc': 'T1',
+        'mrcs': 'T2',
+        'tiff': 'T3',
+        'img': 'T4',  # imagic
+        'dm3': 'T5',
+        'dm4': 'T6',
+        'spi': 'T7',  # spider
     }
 
     _experimentTypes = ['1', '2', '3', '4', '5', '6']
@@ -114,13 +112,13 @@ class EmpiarDepositor(EMProtocol):
                      'ZM', 'ZW']
 
     _voxelTypes = {
-        emlib.DT_UCHAR: 'T1',   # 'UNSIGNED BYTE'
-        emlib.DT_SCHAR: 'T2',   # 'SIGNED BYTE'
+        emlib.DT_UCHAR: 'T1',  # 'UNSIGNED BYTE'
+        emlib.DT_SCHAR: 'T2',  # 'SIGNED BYTE'
         emlib.DT_USHORT: 'T3',  # 'UNSIGNED 16 BIT INTEGER'
-        emlib.DT_SHORT: 'T4',   # 'SIGNED 16 BIT INTEGER'
-        emlib.DT_UINT: 'T5',    # 'UNSIGNED 32 BIT INTEGER'
-        emlib.DT_INT: 'T6',     # 'SIGNED 32 BIT INTEGER'
-        emlib.DT_FLOAT: 'T7'    # '32 BIT FLOAT'
+        emlib.DT_SHORT: 'T4',  # 'SIGNED 16 BIT INTEGER'
+        emlib.DT_UINT: 'T5',  # 'UNSIGNED 32 BIT INTEGER'
+        emlib.DT_INT: 'T6',  # 'SIGNED 32 BIT INTEGER'
+        emlib.DT_FLOAT: 'T7'  # '32 BIT FLOAT'
     }
 
     _grantOwnershipBasedOn = ['username', 'email', 'ORCiD']
@@ -394,12 +392,13 @@ class EmpiarDepositor(EMProtocol):
         order_id = 0
         for author in authors:
             entryAuthorStr = author.split(',')
-            self.entryAuthorStr += '%s{"name": "(\'%s\', \'%s\')", "order_id": %s, "author_orcid": null}' % (',' if order_id > 0 else '', entryAuthorStr[0].strip(), entryAuthorStr[1].strip(), order_id)
+            self.entryAuthorStr += '%s{"name": "(\'%s\', \'%s\')", "order_id": %s, "author_orcid": null}' % (
+                ',' if order_id > 0 else '', entryAuthorStr[0].strip(), entryAuthorStr[1].strip(), order_id)
             order_id += 1
         self.entryAuthorStr += ']'
 
         self.releaseDate = self.getEnumText('releaseDate')
-        self.experimentType = self.experimentType.get()+1
+        self.experimentType = self.experimentType.get() + 1
 
         jsonStr = open(jsonTemplatePath, 'rb').read().decode('utf-8')
         jsonStr = jsonStr % self.__dict__
@@ -421,7 +420,6 @@ class EmpiarDepositor(EMProtocol):
             citationJson['editors'] = []
             depoDict['citation'][0] = citationJson
             file.close()
-
 
         depoDict[self.SCIPION_WORKFLOW_KEY] = self.getScipionWorkflow()
         depoJson = self.getTopLevelPath(self.OUTPUT_DEPO_JSON)
@@ -452,7 +450,7 @@ class EmpiarDepositor(EMProtocol):
         # serve index.html
         existing_deployment = subprocess.run("lsof -i tcp:%s | awk 'NR > 1 {print $2}'" %
                                              self.port, shell=True, stdout=subprocess.PIPE)
-        if existing_deployment.stdout.decode('utf-8') !='':
+        if existing_deployment.stdout.decode('utf-8') != '':
             subprocess.run("kill -9 %s" % existing_deployment.stdout.decode('utf-8'), shell=True)
         cmd = "cd %s && python3 -m http.server %s" % (os.path.join(self.getProject().path,
                                                                    self._getExtraPath(self.DIR_VIEWER)), self.port)
@@ -485,8 +483,11 @@ class EmpiarDepositor(EMProtocol):
         # This function requests to EMPIAR annotators a post-submission change
         # for provide the EMDB entry/ies code/s related with the EMPIAR entry
         requests.packages.urllib3.disable_warnings()
-        url = 'https://wwwdev.ebi.ac.uk/pdbe/emdb/external_test/master/empiar/deposition/api/v1/request_changes/' if (EMPIAR_DEVEL_MODE in os.environ and os.environ[EMPIAR_DEVEL_MODE] == '1') else 'https://www.ebi.ac.uk/pdbe/emdb/empiar/deposition/api/v1/request_changes/'
-        data = {'entry_id': str(self.entryID), 'msg': 'I would like to update this entry with the EMDB code/s: ' + self.EMDBrefs.get()}
+        url = 'https://wwwdev.ebi.ac.uk/pdbe/emdb/external_test/master/empiar/deposition/api/v1/request_changes/' if (
+                EMPIAR_DEVEL_MODE in os.environ and os.environ[
+            EMPIAR_DEVEL_MODE] == '1') else 'https://www.ebi.ac.uk/pdbe/emdb/empiar/deposition/api/v1/request_changes/'
+        data = {'entry_id': str(self.entryID),
+                'msg': 'I would like to update this entry with the EMDB code/s: ' + self.EMDBrefs.get()}
         headers = {'Content-Type': 'application/json', 'Authorization': 'Token ' + os.environ[EMPIAR_TOKEN]}
         response = requests.post(url, data=json.dumps(data), headers=headers, verify=False)
         if response.status_code == 200:
@@ -569,7 +570,8 @@ class EmpiarDepositor(EMProtocol):
                         inputLabel = ' (from %s) ' % protDicts[int(item.getUniqueId().split('.')[0])]['object.label']
                     except:
                         inputLabel = ''
-                summary.append("Input: %s%s- %s\n" % (item.getUniqueId() if item.isPointer() else item.getObjName(), inputLabel, str(item.get())))
+                summary.append("Input: %s%s- %s\n" % (
+                    item.getUniqueId() if item.isPointer() else item.getObjName(), inputLabel, str(item.get())))
 
             protDicts[prot.getObjId()]['output'] = []
             num = 0
@@ -589,7 +591,7 @@ class EmpiarDepositor(EMProtocol):
                 pwutils.copyFile(logs[0], logPath)
                 outputs = logPath
 
-            protDicts[prot.getObjId()]['log'] =  outputs
+            protDicts[prot.getObjId()]['log'] = outputs
 
             # labels
             if prot.getObjId() in protsLabelsDict.keys():
@@ -708,11 +710,13 @@ class EmpiarDepositor(EMProtocol):
             count = 0
             if isinstance(output, SetOfCoordinates):
                 coordinatesDict = {}
-                for micrograph in output.getMicrographs(): # get the first three micrographs
+                for micrograph in output.getMicrographs():  # get the first three micrographs
                     count += 1
                     # apply a low pass filter
                     args = " -i %s -o %s --fourier low_pass %f" % (micrograph.getLocation()[1],
-                                                                   self._getTmpPath(os.path.basename(micrograph.getFileName())), 0.05)
+                                                                   self._getTmpPath(
+                                                                       os.path.basename(micrograph.getFileName())),
+                                                                   0.05)
                     getEnviron = Domain.importFromPlugin('xmipp3', 'Plugin', doRaise=True).getEnviron
                     self.runJob('xmipp_transform_filter', args, env=getEnviron())
                     # save jpg
@@ -725,13 +729,15 @@ class EmpiarDepositor(EMProtocol):
                                                                 'Ydim': micrograph.getYDim()}
 
                     items.append({self.ITEM_REPRESENTATION: repPath})
-                    if count == 3: break;
+                    if count == 3:
+                        break
 
-                for coordinate in output: # for each micrograph, get its coordinates
+                for coordinate in output:  #  for each micrograph, get its coordinates
                     if coordinate.getMicName() in coordinatesDict:
-                        coordinatesDict[coordinate.getMicName()].setdefault('coords', []).append([coordinate.getX(), coordinate.getY()])
+                        coordinatesDict[coordinate.getMicName()].setdefault('coords', []).append(
+                            [coordinate.getX(), coordinate.getY()])
 
-                for micrograph, values in coordinatesDict.items(): # draw coordinates in micrographs jpgs
+                for micrograph, values in coordinatesDict.items():  # draw coordinates in micrographs jpgs
                     if 'coords' in values:
                         image = ImagePIL.open(values['path']).convert('RGB')
                         W_mic = values['Xdim']
@@ -752,8 +758,10 @@ class EmpiarDepositor(EMProtocol):
                     count += 1
                     # In some types get only a limited number of items
                     if (isinstance(item, Micrograph) or isinstance(item, Movie) or
-                        isinstance(item, CTFModel)) and count == 3: break;
-                    if isinstance(item, Particle) and count == 15: break;
+                        isinstance(item, CTFModel)) and count == 3:
+                        break
+                    if isinstance(item, Particle) and count == 15:
+                        break
 
         # If it is a single object then only one item is present
         else:
@@ -777,7 +785,9 @@ class EmpiarDepositor(EMProtocol):
             # Get item representation
             if isinstance(item, Class2D):
                 # use representative as item representation
-                repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s_%s' % (self.outputName, item.getRepresentative().getIndex(), pwutils.replaceBaseExt(item.getRepresentative().getFileName(), 'jpg')))
+                repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s_%s' % (
+                    self.outputName, item.getRepresentative().getIndex(),
+                    pwutils.replaceBaseExt(item.getRepresentative().getFileName(), 'jpg')))
                 itemPath = item.getRepresentative().getLocation()
                 self._ih.convert(itemPath, os.path.join(self.getProject().path, repPath))
 
@@ -794,16 +804,17 @@ class EmpiarDepositor(EMProtocol):
             elif isinstance(item, Class3D):
                 # Get all slices in x,y and z directions of representative to represent the class
                 repDir = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName,
-                                                                          pwutils.removeBaseExt(item.getRepresentative().getFileName())))
+                                                                          pwutils.removeBaseExt(
+                                                                              item.getRepresentative().getFileName())))
                 pwutils.makePath(repDir)
                 if item.getFileName().endswith('.mrc'):
                     item.setFileName(item.getFileName() + ':mrc')
                 I = emlib.Image(item.getRepresentative().getFileName())
-                I.writeSlices(os.path.join(repDir,'slicesX'), 'jpg', 'X')
+                I.writeSlices(os.path.join(repDir, 'slicesX'), 'jpg', 'X')
                 I.writeSlices(os.path.join(repDir, 'slicesY'), 'jpg', 'Y')
                 I.writeSlices(os.path.join(repDir, 'slicesZ'), 'jpg', 'Z')
 
-                if '_size' in itemDict: # write number of particles over a class image
+                if '_size' in itemDict:  # write number of particles over a class image
                     text = itemDict['_size'] + " ptcls"
                     image = ImagePIL.open(os.path.join(repDir, 'slicesX_0000.jpg')).convert('RGB')
                     W, H = image.size
@@ -823,7 +834,7 @@ class EmpiarDepositor(EMProtocol):
                 if item.getFileName().endswith('.mrc'):
                     item.setFileName(item.getFileName() + ':mrc')
                 I = emlib.Image(item.getFileName())
-                I.writeSlices(os.path.join(repDir,'slicesX'), 'jpg', 'X')
+                I.writeSlices(os.path.join(repDir, 'slicesX'), 'jpg', 'X')
                 I.writeSlices(os.path.join(repDir, 'slicesY'), 'jpg', 'Y')
                 I.writeSlices(os.path.join(repDir, 'slicesZ'), 'jpg', 'Z')
 
@@ -840,20 +851,24 @@ class EmpiarDepositor(EMProtocol):
                 if item.getFileName().endswith('.stk'):
                     self._ih.convert(itemPath[1], os.path.join(self.getProject().path, repPath))
                 else:
-                    args = " -i %s -o %s --fourier low_pass %f" % (itemPath[1], self._getTmpPath(os.path.basename(item.getFileName())), 0.05)
+                    args = " -i %s -o %s --fourier low_pass %f" % (
+                        itemPath[1], self._getTmpPath(os.path.basename(item.getFileName())), 0.05)
                     getEnviron = Domain.importFromPlugin('xmipp3', 'Plugin', doRaise=True).getEnviron
                     self.runJob('xmipp_transform_filter', args, env=getEnviron())
-                    self._ih.convert(self._getTmpPath(os.path.basename(item.getFileName())), os.path.join(self.getProject().path, repPath))
+                    self._ih.convert(self._getTmpPath(os.path.basename(item.getFileName())),
+                                     os.path.join(self.getProject().path, repPath))
                 itemDict[self.ITEM_REPRESENTATION] = repPath
 
             elif isinstance(item, CTFModel):
                 # if exists use ctfmodel_quadrant as item representation, in other case use psdFile
                 if item.hasAttribute('_xmipp_ctfmodel_quadrant'):
-                    repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.replaceBaseExt(str(item._xmipp_ctfmodel_quadrant), 'jpg')))
+                    repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (
+                        self.outputName, pwutils.replaceBaseExt(str(item._xmipp_ctfmodel_quadrant), 'jpg')))
                     itemPath = str(item._xmipp_ctfmodel_quadrant)
 
                 else:
-                    repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.replaceBaseExt(item.getPsdFile(), 'jpg')))
+                    repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (
+                        self.outputName, pwutils.replaceBaseExt(item.getPsdFile(), 'jpg')))
                     itemPath = item.getPsdFile()
 
                 self._ih.convert(itemPath, os.path.join(self.getProject().path, repPath))
@@ -863,7 +878,8 @@ class EmpiarDepositor(EMProtocol):
                 # in any other case look for a representation on attributes
                 for key, value in attributes:
                     if os.path.exists(str(value)):
-                        repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (self.outputName, pwutils.replaceBaseExt(str(value), 'png')))
+                        repPath = self.getTopLevelPath(self.DIR_IMAGES, '%s_%s' % (
+                            self.outputName, pwutils.replaceBaseExt(str(value), 'png')))
                         itemPath = str(value)
                         self._ih.convert(itemPath, os.path.join(self.getProject().path, repPath))
                         itemDict[self.ITEM_REPRESENTATION] = repPath

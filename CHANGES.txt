@@ -1,4 +1,6 @@
 3.1:
+    - update plugin files
+    - downloader improvements: add filter by format, search for only movie datasets, add xml/mdoc
 3.0.1:
     - ported to Scipion 3 / python 3
     - updated deposition schema from upstream (1.6b20, 20200429)
