@@ -346,9 +346,11 @@ class EmpiarDepositor(EMProtocol):
         self.releaseDate = self.getEnumText('releaseDate')
         self.experimentType = self.experimentType.get() + 1
 
-        jsonStr = open(jsonTemplatePath, 'rb').read().decode('utf-8')
-        jsonStr = jsonStr % self.__dict__
-        depoDict = json.loads(jsonStr)
+        with open(jsonTemplatePath, 'rb') as jsonTemplate:
+            jsonStr = jsonTemplate.read().decode('utf-8')
+            jsonStr = jsonStr % self.__dict__
+            depoDict = json.loads(jsonStr)
+
         imageSets = self.processImageSets()
         if len(imageSets) > 0:
             self.debug("Imagesets is not empty")
