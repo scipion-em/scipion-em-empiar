@@ -414,7 +414,7 @@ class EmpiarDepositor(EMProtocol):
         pwutils.yellow(f"Executing: empiar-depositor {depositorCall}")
         dep_result = empiar_depositor.main(depositorCall.split())
         if dep_result == 1:
-            raise RuntimeError("Deposition failed, check errors above!")
+            raise RuntimeError("Deposition failed, check the log files!")
         else:
             self.entryID.set(str(dep_result[0]))
             self.uniqueDir.set(dep_result[1])
@@ -525,16 +525,15 @@ class EmpiarDepositor(EMProtocol):
                     except:
                         inputLabel = ''
                 itemName = item.getUniqueId() if item.isPointer() else item.getObjName()
-                summary.append(f"Input: {itemName}{inputLabel} - {str(item.get())}\n")
+                summary.append(f"Input: {itemName}{inputLabel} - {str(item.get())}")
 
             protDicts[objId]['output'] = []
 
             for a, output in prot.iterOutputAttributes():
-                self.debug(f"output key is {a}")
                 protDicts[objId]['output'].append(self.getOutputDict(output))
-                summary.append(f"Output: {output.getObjName()} - {str(output)}\n")
+                summary.append(f"Output: {output.getObjName()} - {str(output)}")
 
-            protDicts[objId]['summary'] = ''.join(summary)
+            protDicts[objId]['summary'] = '\n'.join(summary)
 
             # Get log (stdout)
             outputs = []
