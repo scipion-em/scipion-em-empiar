@@ -28,7 +28,7 @@
 import os
 import pwem
 
-from empiar.constants import *
+from empiar.constants import ASPERA_PASS, ASCP_PATH, EMPIAR_TOKEN
 
 
 __version__ = '3.1'
@@ -48,9 +48,7 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def defineBinaries(cls, env):
-        empiar_cmd = [('./ibm-aspera-connect_4.2.11.768_linux_x86_64.sh',
-                      [])]
-
+        empiar_cmd = [('./ibm-aspera-connect_4.2.11.768_linux_x86_64.sh', [])]
         url = 'https://d3gcli72yxqn2z.cloudfront.net/downloads/connect/latest/bin/ibm-aspera-connect_4.2.11.768_linux_x86_64.tar.gz'
         env.addPackage('ascp', version="4.2.11",
                        url=url,

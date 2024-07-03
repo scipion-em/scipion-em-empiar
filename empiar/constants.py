@@ -26,7 +26,7 @@
 # **************************************************************************
 
 from enum import IntEnum
-from pwem import emlib
+
 
 EMPIAR_HOME = 'EMPIAR_HOME'
 
@@ -46,24 +46,6 @@ class DataFormat(IntEnum):
     HDF5 = 5
     EER = 6
 
-
-IMAGESETCATEGORIES = {
-    "SetOfMicrographs": "T1",  # micrographs - single frame
-    "SetOfMovies": 'T2',  # micrographs - multiframe
-    # 'T3' : 'micrographs - focal pairs - unprocessed',
-    # 'T4' : 'micrographs - focal pairs - contrast inverted',
-    "SetOfMovieParticles": 'T5',  # : 'picked particles - single frame - unprocessed',
-    # 'T6' : 'picked particles - multiframe - unprocessed',
-    "SetOfParticles": 'T7',  # 'picked particles - single frame - processed',
-    # "SetOfMovieParticles": 'T8',  # : 'picked particles - multiframe - processed',
-    "SetOfTiltSeries": 'T9',  # : 'tilt series',
-    "SetOfAverages": 'T10',  # 'class averages',
-    # 'T11' - 'stitched maps'
-    # 'T12' - 'diffraction images'
-    "SetOfVolumes": 'T13',  # 'reconstructed volumes',
-    "SetOfSubtomograms": 'T14'  # 'subtomograms'
-    # 'OT' : 'other, in this case please specify the category in the second element.'
-}
 IMAGESETFORMATS = {
     'mrc': 'T1',
     'mrcs': 'T2',
@@ -104,19 +86,6 @@ COUNTRYCODES = ['AD', 'AE', 'AF', 'AG', 'AI', 'AL', 'AM', 'AO', 'AQ', 'AR', 'AS'
                 'TN', 'TO', 'TR', 'TT', 'TV', 'TW', 'TZ', 'UA', 'UG', 'UM', 'US', 'UY', 'UZ',
                 'VA', 'VC', 'VE', 'VG', 'VI', 'VN', 'VU', 'WF', 'WS', 'XK', 'YE', 'YT', 'ZA',
                 'ZM', 'ZW']
-
-VOXELTYPES = {
-    emlib.DT_UCHAR: 'T1',  # 'UNSIGNED BYTE'
-    emlib.DT_SCHAR: 'T2',  # 'SIGNED BYTE'
-    emlib.DT_USHORT: 'T3',  # 'UNSIGNED 16 BIT INTEGER'
-    emlib.DT_SHORT: 'T4',  # 'SIGNED 16 BIT INTEGER'
-    emlib.DT_UINT: 'T5',  # 'UNSIGNED 32 BIT INTEGER'
-    emlib.DT_INT: 'T6',  # 'SIGNED 32 BIT INTEGER'
-    emlib.DT_FLOAT: 'T7',  # '32 BIT FLOAT'
-    #'T8' - 'BIT',
-    #'T9' - '4 BIT INTEGER',
-    # 'OT' - other, in this case please specify the header format in the second element in capital letters.",
-}
 
 ENTRY_DIR = 'data'
 
