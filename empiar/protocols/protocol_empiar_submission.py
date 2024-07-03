@@ -836,8 +836,6 @@ class EmpiarDepositor(EMProtocol):
         if inputFn.endswith('.stk'):
             self._ih.convert(inputFn, outputFn)
         else:
-            tmpFn = self._getTmpPath(os.path.basename(inputFn))
-            args = f" -i {inputFn} -o {tmpFn} --fourier low_pass 0.05"
+            args = f" -i {inputFn} -o {outputFn} --fourier low_pass 0.05"
             getEnviron = Domain.importFromPlugin('xmipp3', 'Plugin', doRaise=True).getEnviron
             self.runJob('xmipp_transform_filter', args, env=getEnviron())
-            self._ih.convert(tmpFn, outputFn)
