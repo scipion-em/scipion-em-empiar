@@ -83,7 +83,7 @@ IMAGESETCATEGORIES = {
 with pwutils.weakImport("tomo"):
     import tomo.objects
     IMAGESETCATEGORIES["SetOfTiltSeries"] = 'T9',  # : 'tilt series',
-    IMAGESETCATEGORIES["SetOfSubtomograms"] = 'T14'  # 'subtomograms'
+    IMAGESETCATEGORIES["SetOfSubTomograms"] = 'T14'  # 'subtomograms'
 
 
 class EmpiarMappingError(Exception):
