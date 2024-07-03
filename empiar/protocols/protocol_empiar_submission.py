@@ -718,7 +718,6 @@ class EmpiarDepositor(EMProtocol):
         # Skip attributes that are Pointer
         itemDict = {k: str(v) for k, v in attributes if not v.isPointer()}
         itemDict[ITEM_ID] = item.getObjId()
-        itemFn = item.getFileName()
 
         try:
             # Get item representation
@@ -741,6 +740,7 @@ class EmpiarDepositor(EMProtocol):
                 itemDict[ITEM_REPRESENTATION] = repPath
 
             elif isinstance(item, Class3D):
+                itemFn = item.getFileName()
                 # Get all slices in x,y and z directions of representative to represent the class
                 rep = item.getRepresentative()
                 repDir = self.getTopLevelPath(DIR_IMAGES,
@@ -767,6 +767,7 @@ class EmpiarDepositor(EMProtocol):
                 itemDict[ITEM_REPRESENTATION] = str(slices)
 
             elif isinstance(item, Volume):
+                itemFn = item.getFileName()
                 # Get all slices in x,y and z directions to represent the volume
                 repDir = self.getTopLevelPath(DIR_IMAGES,
                                               '%s_%s' % (self.outputName,
@@ -784,6 +785,7 @@ class EmpiarDepositor(EMProtocol):
                 itemDict[ITEM_REPRESENTATION] = str(slices)
 
             elif isinstance(item, Image):
+                itemFn = item.getFileName()
                 # use Location as item representation
                 repPath = self.getTopLevelPath(DIR_IMAGES,
                                                '%s_%s_%s' % (self.outputName,
