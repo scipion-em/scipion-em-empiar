@@ -32,10 +32,9 @@ import ftplib
 import pyworkflow.utils as pwutils
 
 
-def readFromEmpiar(entryId, fileExt):
+def readFromEmpiar(entryId):
     """ Access a specific dataset from EMPIAR repository.
     :param entryId: Entry ID
-    :param fileExt: data format
     """
     empiarUrl = 'https://www.ebi.ac.uk/empiar/api/entry/' + entryId  # URL of EMPIAR API
 
@@ -54,22 +53,15 @@ def readFromEmpiar(entryId, fileExt):
     # Find movie sets
     movieSets = [i for i in imageSets if i['category'] == "micrographs - multiframe"]
 
-    if fileExt != "NONE":
-        # find movie sets that match data format
-        movieSets = [i for i in movieSets if i['data_format'] == fileExt]
-        if not movieSets:
-            raise FileNotFoundError(f"Movies that match {fileExt} data format not found!")
-
     if not movieSets:
         raise FileNotFoundError(f"EMPIAR entry {entryId} does not have any movies!")
     else:
         print(f"Found {len(movieSets)} datasets from EMPIAR entry "
-              f"{entryId} that match filter={fileExt}. Will download the first one only!")
+              f"{entryId}. Will download the first one only!")
 
     samplingRate = movieSets[0]['pixel_width']                # images sampling rate
     dataFormat = movieSets[0]['data_format']                  # images format
     directory = movieSets[0]['directory']
-
     # releaseDate = content[empiarName]['release_date']                    # dataset release date
     # datasetSize = content[empiarName]['dataset_size']                    # dataset size
 
@@ -95,7 +87,7 @@ class FTPDownloader:
             ftp.login(self.username, self.password)
             self.ftp_client = ftp
 
-        return ftp
+        return self.ftp_client
 
     def downloadFile(self, remoteFile, downloadFolder, fileReadyCallback=None):
         """ Downloads a single file into a local folder"""
@@ -137,7 +129,6 @@ class FTPDownloader:
         return False
 
     def _downloadFiles(self, downloadFolder, fileReadyCallback=None, limit=None):
-
         print(f"Downloading files to {downloadFolder}")
         pwutils.makePath(downloadFolder)
 

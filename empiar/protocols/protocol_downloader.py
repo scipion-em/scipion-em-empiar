@@ -34,7 +34,7 @@ from pwem.objects import Movie, SetOfMovies, Acquisition
 from pwem.protocols import EMProtocol, ProtImportImages
 
 from empiar.utils import FTPDownloader, readFromEmpiar
-from empiar.constants import DataFormat
+from empiar.constants import MOVIES_EXTENSIONS
 
 EMPIAR_REMOTE_ROOT = '/empiar/world_availability/'
 FTP_EBI_AC_UK = 'ftp.ebi.ac.uk'
@@ -45,14 +45,6 @@ class EmpiarDownloader(EMProtocol):
 
     _label = 'empiar downloader'
     _possibleOutputs = {"outputMovies": SetOfMovies}
-
-    fmt = DataFormat  # alias
-    dataFormatsToExtensions = {fmt.MRC.name: [".mrc"],
-                               fmt.MRCS.name: [".mrcs"],
-                               fmt.TIFF.name: [".tif", ".tiff"],
-                               fmt.DM4.name: [".dm4"],
-                               fmt.HDF5.name: [".hdf"],
-                               fmt.EER.name: [".eer, .gain"]}
 
     def __init__(self, **args):
         EMProtocol.__init__(self, **args)
@@ -76,15 +68,10 @@ class EmpiarDownloader(EMProtocol):
                       label="Number of files", default=1,
                       help="Number of files to download")
 
-        form.addParam("fileExt", params.EnumParam,
-                      choices=[i.name for i in DataFormat],
-                      display=params.EnumParam.DISPLAY_COMBO,
-                      label="Filter by extension", default=0,
-                      help="Only movies that have this extension will be "
-                           "downloaded. Default=NONE means no filter.")
-
-        form.addParam("keepMetadata", params.BooleanParam,
-                      default=False, label="Also download xml or mdoc?")
+        form.addParam("filterByExt", params.StringParam,
+                      label="Filter by extension", default=".mrc",
+                      help="Enter comma separated extensions to filter files "
+                           "that will be downloaded.")
 
         form.addParam("makeEntryFolder", params.BooleanParam,
                       expertLevel=params.LEVEL_ADVANCED,
@@ -126,7 +113,6 @@ class EmpiarDownloader(EMProtocol):
 
     def _insertAllSteps(self):
         readXmlStepId = self._insertFunctionStep(self.readEmpiarMetadataStep,
-                                                 self.getEnumText("fileExt"),
                                                  prerequisites=[])
         gainStepId = self._insertFunctionStep(self.downloadGainStep,
                                               prerequisites=[])
@@ -138,10 +124,9 @@ class EmpiarDownloader(EMProtocol):
                                  prerequisites=[downloadStepId])
 
     # --------------------------- STEPS functions -----------------------------
-    def readEmpiarMetadataStep(self, fileExt):
+    def readEmpiarMetadataStep(self):
         """ Get some data from the empiar API. """
-        title, samplingRate, dataFormat, directory = readFromEmpiar(self.entryId.get(),
-                                                                    fileExt)
+        title, samplingRate, dataFormat, directory = readFromEmpiar(self.entryId.get())
 
         # Store returned values as "persistent" attributes
         self.title = String(title)
@@ -219,11 +204,11 @@ class EmpiarDownloader(EMProtocol):
 
     def _getDownloadFilter(self):
         """ Returns a list of extensions to be matched or None"""
-        exts = self.dataFormatsToExtensions.get(self.dataFormat.get(), None)
-        if exts is not None and self.keepMetadata:
-            exts.extend([".mdoc", ".xml"])
-
-        return exts
+        if self.filterByExt.get() != "":
+            exts = self.filterByExt.get().strip().split(",")
+            return list(map(lambda x: x.strip(), exts))
+        else:
+            return None
 
     def _getRootDownloadFolder(self):
         if self.makeEntryFolder:
@@ -235,8 +220,8 @@ class EmpiarDownloader(EMProtocol):
         return os.path.join(self.entryId.get(), self.empiarDirectory.get())
 
     def registerImage(self, file):
-        """ Register an movie taking into account a file path. """
-        if pwutils.getExt(file) in [".mdoc", ".xml"]:
+        """ Register a movie taking into account a file path. """
+        if pwutils.getExt(file) not in MOVIES_EXTENSIONS:
             return  # skip metadata files
 
         # Create a link
