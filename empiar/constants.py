@@ -37,7 +37,13 @@ EMPIAR_DEVEL_MODE = "EMPIAR_DEVEL_MODE"
 
 
 # Protocols constants below
-MOVIES_EXTENSIONS = [".mrc", ".mrcs", ".tif", ".tiff", ".dm4", ".hdf", ".eer"]
+DATA_FORMATS = {
+    "MRC": [".mrc"],
+    "MRCS": [".mrcs"],
+    "TIFF": [".tif", ".tiff"],
+    "DM4": [".dm4"],
+    "HDF5": [".hdf"]
+}
 
 IMAGESETFORMATS = {
     'mrc': 'T1',

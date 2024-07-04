@@ -34,7 +34,7 @@ from pwem.objects import Movie, SetOfMovies, Acquisition
 from pwem.protocols import EMProtocol, ProtImportImages
 
 from empiar.utils import FTPDownloader, readFromEmpiar
-from empiar.constants import MOVIES_EXTENSIONS
+from empiar.constants import DATA_FORMATS
 
 EMPIAR_REMOTE_ROOT = '/empiar/world_availability/'
 FTP_EBI_AC_UK = 'ftp.ebi.ac.uk'
@@ -69,9 +69,11 @@ class EmpiarDownloader(EMProtocol):
                       help="Number of files to download")
 
         form.addParam("filterByExt", params.StringParam,
-                      label="Filter by extension", default=".mrc",
+                      label="Filter by extension", default="",
                       help="Enter comma separated extensions to filter files "
-                           "that will be downloaded.")
+                           "that will be downloaded. By default, only the "
+                           "movies that match the entry's data format "
+                           "will be downloaded.")
 
         form.addParam("makeEntryFolder", params.BooleanParam,
                       expertLevel=params.LEVEL_ADVANCED,
@@ -168,7 +170,9 @@ class EmpiarDownloader(EMProtocol):
         pwutils.makePath(downloadFolder)
 
         directory = EMPIAR_REMOTE_ROOT + empiarFolder
-        ftpDownloader = FTPDownloader(FTP_EBI_AC_UK, fnFilter=self._getDownloadFilter())
+        filter = self._getDownloadFilter()
+        self.info(f"Filter by extension: {filter}")
+        ftpDownloader = FTPDownloader(FTP_EBI_AC_UK, fnFilter=filter)
         ftpDownloader.downloadFolder(directory, downloadFolder, self.registerImage,
                                      limit=self.amountOfImages.get())
 
@@ -204,11 +208,12 @@ class EmpiarDownloader(EMProtocol):
 
     def _getDownloadFilter(self):
         """ Returns a list of extensions to be matched or None"""
+        filter = DATA_FORMATS.get(self.dataFormat.get(), [])
         if self.filterByExt.get() != "":
             exts = self.filterByExt.get().strip().split(",")
-            return list(map(lambda x: x.strip(), exts))
-        else:
-            return None
+            filter.extend(exts)
+
+        return list(set(filter))
 
     def _getRootDownloadFolder(self):
         if self.makeEntryFolder:
@@ -221,8 +226,8 @@ class EmpiarDownloader(EMProtocol):
 
     def registerImage(self, file):
         """ Register a movie taking into account a file path. """
-        if pwutils.getExt(file) not in MOVIES_EXTENSIONS:
-            return  # skip metadata files
+        if pwutils.getExt(file) not in DATA_FORMATS.get(self.dataFormat.get()):
+            return  # skip non-movie files
 
         # Create a link
         dest = self._getExtraPath(os.path.basename(file))
