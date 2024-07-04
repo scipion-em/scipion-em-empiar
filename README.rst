@@ -2,7 +2,27 @@
 Scipion Empiar Depositor
 ========================
 
-This project is a Scipion plugin to make depositions to https://www.ebi.ac.uk/pdbe/emdb/empiar
+This project is a Scipion plugin to make depositions to https://www.ebi.ac.uk/pdbe/emdb/empiar or to download raw data.
+
+.. image:: https://img.shields.io/pypi/v/scipion-em-empiar.svg
+        :target: https://pypi.python.org/pypi/scipion-em-empiar
+        :alt: PyPI release
+
+.. image:: https://img.shields.io/pypi/l/scipion-em-empiar.svg
+        :target: https://pypi.python.org/pypi/scipion-em-empiar
+        :alt: License
+
+.. image:: https://img.shields.io/pypi/pyversions/scipion-em-empiar.svg
+        :target: https://pypi.python.org/pypi/scipion-em-empiar
+        :alt: Supported Python versions
+
+.. image:: https://img.shields.io/sonar/quality_gate/scipion-em_scipion-em-empiar?server=https%3A%2F%2Fsonarcloud.io
+        :target: https://sonarcloud.io/dashboard?id=scipion-em_scipion-em-empiar
+        :alt: SonarCloud quality gate
+
+.. image:: https://img.shields.io/pypi/dm/scipion-em-empiar
+        :target: https://pypi.python.org/pypi/scipion-em-empiar
+        :alt: Downloads
 
 =====
 Setup
@@ -24,7 +44,7 @@ Alternatively, in devel mode:
 
 .. code-block::
 
-    git clone https://github.com/scipion-em/scipion-em-empiar.git
+    git clone -b devel https://github.com/scipion-em/scipion-em-empiar.git
     scipion installp -p local/path/to/scipion-em-empiar --devel
 
 2. **Download Aspera Connect:**
