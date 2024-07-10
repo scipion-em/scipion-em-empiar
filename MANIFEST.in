@@ -1,2 +1,14 @@
-include *.txt
+# Include the README
 include *.rst
+
+# Include the license file
+include LICENSE
+
+# Include the changelog
+include CHANGES.txt
+
+# Include conf file
+include empiar/protocols.conf
+
+# Include templates
+include empiar/templates/*json

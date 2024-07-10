@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- jquery -->
+    <script src="//code.jquery.com/jquery-3.2.1.min.js"
+            integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+            crossorigin="anonymous"></script>
+    <!-- cytoscape -->
+    <script src="//unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+    <!-- dagre layout -->
+    <script src="//cdn.rawgit.com/cpettitt/dagre/v0.7.4/dist/dagre.min.js"></script>
+    <script src="js/cytoscape-dagre.js"></script>
+    <!-- qtip -->
+    <link rel="stylesheet" type="text/css" href="//cdnjs.cloudflare.com/ajax/libs/qtip2/2.2.0/jquery.qtip.css">
+    <script src="//cdnjs.cloudflare.com/ajax/libs/qtip2/2.2.0/jquery.qtip.js"></script>
+    <script src="js/cytoscape-qtip.js"></script>
+    <title>Scipion workflow</title>
+
+</head>
+<body>
+</body>
+
+<dom-module id="scipion-workflow">
+
+    <style>
+
+        #cy {
+            z-index: 999;
+        }
+
+        .qtip {
+            max-width: 80%;
+            position: relative;
+        }
+
+        .qtip-tip {
+            display: none !important;
+        }
+
+        .qtip-content{
+            overflow-x: scroll;
+            overflow-y: scroll;
+            white-space: nowrap;
+            height: 70vh;
+        }
+
+        .qtip-bootstrap {
+            -webkit-box-shadow: none;
+            -moz-box-shadow: none;
+            box-shadow: none;
+            -moz-border-radius: 0;
+            -webkit-border-radius: 0;
+            border-radius: 0;
+        }
+
+    </style>
+
+    <script>
+
+        function getFormattedProtocolStr(dict, viewMode){
+            // Formats a protocol object to show its data in the qtip as a table
+            // Returns the table as a html string.
+            var blackList = ['runName', 'runMode', 'labelColor']; // Params given by scipion json that we dont want to show
+            var summaryWhiteList = ['object.className', 'summary', 'output']
+            var formattedStr = '<table><th>Param name</th><th>Param value</th>';
+
+            $.each(dict, function(key, value){
+                if (blackList.indexOf(key)===-1){
+                    if(viewMode!=='summarized' || summaryWhiteList.indexOf(key)!==-1) {
+                        if (key === 'output') { // images
+                            formattedStr += '<tr><td><b>' + 'output' + ':</b></td><td></td></tr>'
+                            $.each(value, function(outputKey, outputValue){
+                                formattedStr += '<tr><td> -' + outputValue['outputName'] + ':</td><td>';
+                                var outputItems = outputValue['outputItems']
+                                var nimg = 0
+                                $.each(outputItems, function(itemKey, itemValue) {
+                                    if ('item_representation' in itemValue) {
+                                        var path = itemValue['item_representation']
+                                        path = path.substring(path.lastIndexOf("/") + 1, path.length)
+
+                                        if (path.indexOf('jpg')!==-1){
+                                            formattedStr += '<img src=' + "images_representation/" + path + ' width="200" height="200" style="margin: 0px 0px 10px 5px">'
+                                            nimg = nimg + 1;
+                                            if (nimg % 5 == 0) {
+                                                formattedStr += '<br>';
+                                            }
+                                        }
+                                        else { // is a folder containing images inside
+                                            var folder = 'images_representation/' + path + '/';
+
+                                            $.ajax({
+                                                url : folder,
+                                                async: false,
+                                                success: function (images) {
+                                                    $(images).find("a").attr("href", function (nimg, image) {
+                                                        if(image.match(/\.(jpe?g)$/) ) {
+                                                            formattedStr += '<img src="' + folder + image + '" width="200" height="200" style="margin: 0px 0px 10px 5px">'
+                                                        }
+                                                        nimg = nimg + 1;
+                                                        if (nimg % 5 == 0) {
+                                                            formattedStr += '<br>';
+                                                        }
+                                                    })
+                                                }
+                                            });
+                                        }
+                                    }
+                                    if (outputValue['outputType'] === 'SetOfClasses3D' ) {
+                                        formattedStr += '<br>';
+                                    }
+                                });
+                                formattedStr += '</td></tr>'
+                                if (outputValue['outputType'] === 'SetOfClasses2D' || outputValue['outputType'] === 'SetOfClasses3D') {
+                                    formattedStr += '<tr><td></td><td>' + outputValue['outputSize'] + ' classes';
+                                    formattedStr +=  '</td></tr>';
+                                }
+                            });
+                        }
+                        else {
+                            if (key === 'summary') {
+                                value = value.replaceAll('Input', '<br>Input');
+                                value = value.replaceAll('Output', '<br>Output')
+                            }
+                            formattedStr += '<tr><td><b>' + key + ':</b></td><td title="' + value + '">' + value + '</td></tr>'
+                        }
+                    }
+                }
+            });
+            formattedStr += '</table>';
+            return formattedStr
+        }
+
+        function paintGraph(workflowDiv, nodes, edges){
+            // Paints the graph inside a given container (workflowDiv).
+            // Needs nodes and edges as returned by getGraphNodes function
+            var cy = cytoscape({
+              container: workflowDiv,
+              autounselectify: true,
+              maxZoom: 1.75,
+              minZoom: 0.25,
+
+              layout: {
+                name: 'dagre',
+                padding: 10,
+                nodeSep: 10
+              },
+
+              style: cytoscape.stylesheet()
+                .selector('node')
+                  .style({
+                    'shape': 'rectangle',
+                    'width': 'label',
+                    'padding': 5,
+                    'content': 'data(name)',
+                    'text-valign': 'center',
+                    'background-fill': 'linear-gradient',
+                    'background-gradient-stop-colors': 'data(color)',
+                    'color': '#393939'
+                  })
+                .selector(':selected')
+                  .style({
+                    'border-width': 2,
+                    'border-color': '#333'
+                  })
+                .selector('edge')
+                  .style({
+                    'opacity': 1,
+                    'width': .5,
+                    'line-color': 'grey',
+                  })
+                .selector('edge:selected')
+                  .style({
+                    'width': 1,
+                    'border-color': '#333',
+                    'line-color': 'grey'
+                  })
+                .selector('.faded')
+                  .style({
+                    'opacity': 0.25,
+                    'text-opacity': 0
+                  }),
+
+              elements: {
+                nodes: nodes,
+                edges: edges
+              }
+            });
+
+            var currentId;
+            // just use the regular qtip api but on cy elements
+            cy.nodes().qtip({
+                content: {
+                    text: function(){currentId = this.data().id;return this.data().content},
+                    title: {
+                        text: function(){
+                            var title;
+                            cy.nodes().forEach(function(node) {
+                                if (node.data().id === currentId) {
+                                    title = node.data().name
+                                }
+                            });
+                            return title
+                        },
+                        button: true
+                    }
+                },
+                position: {
+                    my: 'bottom center',
+                    at: 'top center'
+                },
+                style: {
+                    classes: 'qtip-bootstrap'
+                }
+            });
+
+        }
+
+        function getWorkflow(jsonSrc, workflowDiv){
+            // Parses json from jsonSrc and paints workflow in workflowDiv
+            // (workflowDiv must be an html element)
+
+            var viewModeSelector = document.getElementById('view-mode');
+            var viewModeValue = viewModeSelector.options[viewModeSelector.selectedIndex].value;
+
+            if (jsonSrc.startsWith("[")){
+                getGraphNodes(JSON.parse(jsonSrc), workflowDiv, viewModeValue);
+
+            }else{
+                $.getJSON(jsonSrc, function (data , status){
+                    getGraphNodes(data, workflowDiv, viewModeValue);
+                });
+            }
+        }
+
+        function getGraphNodes(data, workflowDiv, viewMode){
+                // Parses json data as given by getWorkflow function
+                var nodeList = [{ data: {
+                                            id: 'root',
+                                            name: 'Project',
+                                            color: '#EEEEEE'
+                                        }
+                                }
+                    ];
+                var edgeList = [];
+                var regex = /^(\d+)\./;
+
+                $.each(data, function(index, protocol){
+                    var color = '#EEEEEE'
+
+                    if (protocol['labelColor'] != undefined) {
+                        color = protocol['labelColor'];
+                    }
+
+                    nodeList.push({ data: {
+                                            id: protocol['object.id'],
+                                            name: protocol['object.label'],
+                                            content: getFormattedProtocolStr(protocol, viewMode),
+                                            color: color
+                    }
+                    });
+                    var hasInputs = false;
+                    $.each(protocol, function(key, value){
+                        var protID = protocol['object.id'];
+                        if (Array.isArray(value)){
+                            $.each(value, function(index, arrayValue){
+                                if (typeof(arrayValue) === 'string' && regex.test(arrayValue) && key !== 'pluginVersion'){
+                                    edgeList.push({ data: {
+                                                        source: arrayValue.split('.')[0],
+                                                        target: protID
+                                                        }
+                                                  });
+                                    hasInputs = true
+                                }
+
+                            })
+                        }else if (typeof(value) === 'string' && regex.test(value) && key !== 'pluginVersion'){
+                            edgeList.push({ data: {
+                                                source: value.split('.')[0],
+                                                target: protID
+                                                }
+                                          });
+                            hasInputs = true
+                        }
+                    });
+                    if (!hasInputs){
+                            edgeList.push({ data: {
+                                                source: 'root',
+                                                target: protocol['object.id']
+                                                }
+                                          });
+                    }
+
+                });
+                paintGraph(workflowDiv, nodeList, edgeList)
+        };
+
+        class ScipionWorkflow extends HTMLElement {
+            static get is() { return "scipion-workflow"; }
+
+            // Define attributes to observe
+            static get observedAttributes() {return ['src']; }
+
+            // React to attributes changes
+            attributeChangedCallback(attr, oldValue, newValue) {
+                if (attr == 'src') {
+                    this.refresh();
+                }
+            }
+
+            constructor() {
+                super();
+                // Create a shadow root
+                var shadow = this.attachShadow({mode: 'open'});
+                // Create a div that will contain the workflow graph
+                var workflowDiv = document.createElement('div');
+                workflowDiv.id = 'workflowDiv';
+                this.workflowDiv = workflowDiv;
+                shadow.appendChild(workflowDiv);
+                // Paint the graph
+                this.refresh()
+            }
+
+            refresh() {
+                // Performs all the steps to paint the graph
+
+                // 1. Get attrs from the html tag
+                var jsonSrc = this.getAttribute('src');
+                if (jsonSrc == undefined) {
+                    return;
+                }
+                // 2. Apply attrs to workflow div
+                this.workflowDiv.style.width = '100%';
+                this.workflowDiv.style.height = '100%';
+                this.workflowDiv.style.position = 'relative';
+                //3. Parse json data and paint graph
+                getWorkflow(jsonSrc, this.workflowDiv);
+            }
+        }
+        customElements.define(ScipionWorkflow.is, ScipionWorkflow);
+
+        // Prevent styles from being applied via html import, add them explicitly to head
+        // as specified in https://github.com/TakayoshiKochi/deprecate-style-in-html-imports
+        var importDoc = document.currentScript.ownerDocument;
+        var styleLink = importDoc.querySelector('link[rel=stylesheet]');
+        document.head.appendChild(styleLink);
+        var style = importDoc.querySelector('style');
+        document.head.appendChild(style);
+
+    </script>
+</dom-module>
+
+</html>
