@@ -696,9 +696,9 @@ class EmpiarDepositor(EMProtocol):
 
             else:
                 for item in output.iterItems():
-                    itemDict = self.getItemDict(item)
-                    items.append(itemDict)
                     count += 1
+                    itemDict = self.getItemDict(item, count)
+                    items.append(itemDict)
                     # In some types get only a limited number of items
                     if (isinstance(item, Micrograph) or
                         isinstance(item, Movie) or
@@ -715,7 +715,7 @@ class EmpiarDepositor(EMProtocol):
 
         return outputDict
 
-    def getItemDict(self, item):
+    def getItemDict(self, item, count=None):
         attributes = item.getAttributes()
         # Skip attributes that are Pointer
         itemDict = {k: str(v) for k, v in attributes if not v.isPointer()}
@@ -793,7 +793,7 @@ class EmpiarDepositor(EMProtocol):
                                                '%s_%s_%s' % (self.outputName,
                                                              item.getIndex(),
                                                              pwutils.replaceBaseExt(itemFn, 'jpg')))
-                self.createThumbnail(itemFn, repPath)
+                self.createThumbnail(itemFn, repPath, count)
                 itemDict[ITEM_REPRESENTATION] = repPath
 
             elif isinstance(item, CTFModel):
@@ -830,12 +830,14 @@ class EmpiarDepositor(EMProtocol):
 
         return itemDict
 
-    def createThumbnail(self, inputFn, outputFn):
+    def createThumbnail(self, inputFn, outputFn, count=None):
         """ Apply a low pass filter and make a jpg thumbnail. """
         outputFn = self.getProjectPath(outputFn)
         if inputFn.endswith('.stk'):
             self._ih.convert(inputFn, outputFn)
         else:
-            args = f" -i {inputFn} -o {outputFn} --fourier low_pass 0.05"
+            x, y, z, n = self._ih.getDimensions(inputFn)
+            args = f" -i {inputFn if n == 1 else f'{count}@{inputFn}'} -o {outputFn} --fourier low_pass 0.05"
+
             getEnviron = Domain.importFromPlugin('xmipp3', 'Plugin', doRaise=True).getEnviron
             self.runJob('xmipp_transform_filter', args, env=getEnviron())
