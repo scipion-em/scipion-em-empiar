@@ -42,7 +42,10 @@ from pyworkflow.project import config
 from pwem import Domain, emlib
 from pwem.protocols import EMProtocol
 from pwem.objects import (Class2D, Class3D, Image, CTFModel, Volume,
-                          Micrograph, Movie, Particle, SetOfCoordinates)
+                          Micrograph, Movie, Particle, SetOfCoordinates, SetOfCTF, SetOfMicrographs)
+from pwem.viewers import EmPlotter
+import emtable as md
+from math import sqrt
 
 from empiar import Plugin
 from empiar.constants import *
@@ -535,6 +538,12 @@ class EmpiarDepositor(EMProtocol):
                 protDicts[objId]['output'].append(self.getOutputDict(output))
                 summary.append(f"Output: {output.getObjName()} - {str(output)}")
 
+            # additional plots
+            additionalPlots = self.getAdditionalPlots(prot)
+            for plotName, plotPath in additionalPlots.items():
+                protDicts[objId]['output'].append({OUTPUT_NAME: plotName,
+                                                   OUTPUT_ITEMS: [{ITEM_REPRESENTATION: plotPath}]})
+
             protDicts[objId]['summary'] = '\n'.join(summary)
 
             # Get log (stdout)
@@ -841,3 +850,68 @@ class EmpiarDepositor(EMProtocol):
 
             getEnviron = Domain.importFromPlugin('xmipp3', 'Plugin', doRaise=True).getEnviron
             self.runJob('xmipp_transform_filter', args, env=getEnviron())
+
+    def getAdditionalPlots(self, prot):
+        """ Generate additional plots apart from basic thumbnails. """
+        plotPaths = {}
+        for a, output in prot.iterOutputAttributes():
+            # alignment methods
+            if isinstance(output, SetOfMicrographs):
+                shiftsX, shiftsY, totalShifts = [], [], []
+                for item in output.iterItems():
+                    # XmippProtFlexAlign, XmippProtMovieMaxShift...
+                    if item.hasAttribute('_xmipp_ShiftX') and item.hasAttribute('_xmipp_ShiftY'):
+                        shiftsX = [float(x) for x in item.getAttributeValue('_xmipp_ShiftX').split(',')]
+                        shiftsY = [float(y) for y in item.getAttributeValue('_xmipp_ShiftY').split(',')]
+
+                    # ProtRelionMotioncor
+                    elif os.path.exists(os.path.join(prot._getExtraPath(), pwutils.replaceBaseExt(item.getMicName(), 'star'))):
+                        starFile = os.path.join(prot._getExtraPath(), pwutils.replaceBaseExt(item.getMicName(), 'star'))
+                        table = md.Table(fileName=starFile, tableName='global_shift')
+
+                        for i, row in enumerate(table):
+                            shiftsX.append(float(row.rlnMicrographShiftX))
+                            shiftsY.append(float(row.rlnMicrographShiftY))
+
+                    if len(shiftsX) > 0 and len(shiftsY) > 0:
+                        # relative shifts
+                        relativeShiftsX = [shiftsX[i] - shiftsX[i-1] for i in range(1, len(shiftsX))]
+                        relativeShiftsY = [shiftsY[i] - shiftsY[i-1] for i in range(1, len(shiftsY))]
+
+                        totalShifts.append(sqrt(sum((x**2 + y**2) for x, y in zip(relativeShiftsX, relativeShiftsY))))
+
+                        numberOfBins = 10
+                        plotterShifts = EmPlotter()
+                        plotterShifts.createSubPlot("Total shifts histogram", "Drift (pixels)", "#")
+                        plotterShifts.plotHist(totalShifts, nbins=numberOfBins)
+                        repPath = self.getTopLevelPath(DIR_IMAGES, f'{output.getObjName()}_shifts_histogram.jpg')
+                        plotterShifts.savefig(os.path.join(self.getProject().path, repPath))
+                        plotterShifts.close()
+                        plotPaths[f'{output.getObjName()}_shifts_histogram'] = repPath
+
+            # CTF methods
+            if isinstance(output, SetOfCTF):
+                defocusU = [ctf.getDefocusU() for ctf in output]
+                defocusV = [ctf.getDefocusV() for ctf in output]
+                defocus = [(defU + defV)/2 for defU, defV in zip(defocusU, defocusV)]
+                astigmatism = [abs(defU - defV)/2 for defU, defV in zip(defocusU, defocusV)]
+
+                numberOfBins = 10
+                plotterDefocus = EmPlotter()
+                plotterAstigmatism = EmPlotter()
+
+                plotterDefocus.createSubPlot("Defocus histogram", "Defocus (A)", "#")
+                plotterDefocus.plotHist(defocus, nbins=numberOfBins)
+                repPath = self.getTopLevelPath(DIR_IMAGES, f'{output.getObjName()}_defocus_histogram.jpg')
+                plotterDefocus.savefig(os.path.join(self.getProject().path, repPath))
+                plotterDefocus.close()
+                plotPaths[f'{output.getObjName()}_defocus_histogram'] = repPath
+
+                plotterAstigmatism.createSubPlot("Astigmatism histogram", "Astigmatism (A)", "#")
+                plotterAstigmatism.plotHist(astigmatism, nbins=numberOfBins)
+                repPath = self.getTopLevelPath(DIR_IMAGES, f'{output.getObjName()}_defocus_astigmatism.jpg')
+                plotterAstigmatism.savefig(os.path.join(self.getProject().path, repPath))
+                plotterAstigmatism.close()
+                plotPaths[f'{output.getObjName()}_defocus_astigmatism.jpg'] = repPath
+
+        return plotPaths
