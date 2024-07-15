@@ -46,6 +46,7 @@ from pwem.objects import (Class2D, Class3D, Image, CTFModel, Volume,
 from pwem.viewers import EmPlotter
 import emtable as md
 from math import sqrt
+import numpy as np
 
 from empiar import Plugin
 from empiar.constants import *
@@ -813,13 +814,23 @@ class EmpiarDepositor(EMProtocol):
                                                    '%s_%s' % (self.outputName,
                                                               pwutils.replaceBaseExt(itemPath, 'jpg')))
 
+                    self._ih.convert(itemPath, self.getProjectPath(repPath))
                 else:
                     itemPath = item.getPsdFile()
                     repPath = self.getTopLevelPath(DIR_IMAGES,
                                                    '%s_%s' % (self.outputName,
                                                               pwutils.replaceBaseExt(itemPath, 'jpg')))
 
-                self._ih.convert(itemPath, self.getProjectPath(repPath))
+                    image = emlib.Image(itemPath)
+                    data = image.getData()
+
+                    GAMMA = 2.2 # apply a gamma correction
+                    data = data ** (1/GAMMA)
+                    data = np.fft.fftshift(data)
+
+                    image.setData(data)
+                    image.write(repPath)
+
                 itemDict[ITEM_REPRESENTATION] = repPath
 
             else:
