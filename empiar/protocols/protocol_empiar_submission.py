@@ -47,6 +47,7 @@ from pwem.viewers import EmPlotter
 import emtable as md
 from math import sqrt
 import numpy as np
+import shutil
 
 from empiar import Plugin
 from empiar.constants import *
@@ -781,17 +782,22 @@ class EmpiarDepositor(EMProtocol):
 
             elif isinstance(item, Volume):
                 itemFn = item.getFileName()
+                # if is a .vol volume, convert to .mrc
+                if itemFn.endswith(".vol"):
+                    repPath = self.getTopLevelPath(DIR_IMAGES,
+                                                   f"{self.outputName}_{pwutils.removeBaseExt(itemFn)}.mrc")
+                    self._ih.convert(itemFn, self.getProjectPath(repPath))
+
                 # Get all slices in x,y and z directions to represent the volume
                 repDir = self.getTopLevelPath(DIR_IMAGES,
-                                              '%s_%s' % (self.outputName,
-                                                         pwutils.removeBaseExt(itemFn)))
+                                              f"{self.outputName}_{pwutils.removeBaseExt(itemFn)}")
                 pwutils.makePath(repDir)
                 if itemFn.endswith('.mrc'):
                     item.setFileName(itemFn + ':mrc')
-                I = emlib.Image(itemFn)
-                I.writeSlices(os.path.join(repDir, 'slicesX'), 'jpg', 'X')
-                I.writeSlices(os.path.join(repDir, 'slicesY'), 'jpg', 'Y')
-                I.writeSlices(os.path.join(repDir, 'slicesZ'), 'jpg', 'Z')
+                V = emlib.Image(itemFn).getData()
+                self.writeSlices(V, os.path.join(repDir, 'slicesX'), 'X')
+                self.writeSlices(V, os.path.join(repDir, 'slicesY'), 'Y')
+                self.writeSlices(V, os.path.join(repDir, 'slicesZ'), 'Z')
 
                 itemDict[ITEM_REPRESENTATION] = repDir
 
@@ -867,6 +873,19 @@ class EmpiarDepositor(EMProtocol):
 
     def getAdditionalPlots(self, prot):
         """ Generate additional plots apart from basic thumbnails. """
+
+        def getMRCVolume(output):
+            itemFn = output.getFileName()
+            if itemFn.endswith('mrc'):
+                itemFn = itemFn.replace(':mrc', '')
+                repPath = self.getTopLevelPath(DIR_IMAGES,
+                                               f"{self.outputName}_{pwutils.removeBaseExt(itemFn)}.mrc")
+                shutil.copy(itemFn, repPath)
+            if itemFn.endswith('.vol'): # already copied (because it was previously converted to mrc)
+                repPath = self.getTopLevelPath(DIR_IMAGES,
+                                               f"{self.outputName}_{pwutils.removeBaseExt(itemFn)}.mrc")
+            return f"{self.outputName}_{pwutils.removeBaseExt(itemFn)}_3D", repPath
+
         plotPaths = {}
         for a, output in prot.iterOutputAttributes():
             # alignment methods
@@ -928,4 +947,33 @@ class EmpiarDepositor(EMProtocol):
                 plotterAstigmatism.close()
                 plotPaths[f'{output.getObjName()}_defocus_astigmatism.jpg'] = repPath
 
+            # Volumes
+            if isinstance(output, Volume):
+                name, repPath = getMRCVolume(output)
+                plotPaths[name] = repPath
+
+            elif isinstance(output, SetOfVolumes):
+                for item in output.iterItems():
+                    name, repPath = getMRCVolume(item)
+                    plotPaths[name] = repPath
+
         return plotPaths
+
+    def writeSlices(self, V, fnRoot, direction):
+        """ Generate volume slices for x, y and z axis. """
+        m = np.min(V)
+        M = np.max(V)
+        V = (V - m) / (M - m) * 255
+        Zdim, Ydim, Xdim = V.shape
+        if direction == 'X':
+            for j in range(Xdim):
+                I = ImagePIL.fromarray(np.reshape(V[:, :, j], [Zdim, Ydim]).astype(np.uint8))
+                I.save(f'{fnRoot}_{"{:04d}".format(j)}.jpg')
+        if direction == 'Y':
+            for i in range(Ydim):
+                I = ImagePIL.fromarray(np.reshape(V[:, i, :], [Zdim, Xdim]).astype(np.uint8))
+                I.save(f'{fnRoot}_{"{:04d}".format(i)}.jpg')
+        if direction == 'Z':
+            for k in range(Zdim):
+                I = ImagePIL.fromarray(np.reshape(V[k, :, :], [Ydim, Xdim]).astype(np.uint8))
+                I.save(f'{fnRoot}_{"{:04d}".format(k)}.jpg')
