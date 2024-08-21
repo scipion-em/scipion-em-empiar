@@ -873,18 +873,17 @@ class EmpiarDepositor(EMProtocol):
 
     def getAdditionalPlots(self, prot):
         """ Generate additional plots apart from basic thumbnails. """
-
-        def getMRCVolume(output):
+        def getMRCVolume(output, outputName):
             itemFn = output.getFileName()
             if itemFn.endswith('mrc'):
                 itemFn = itemFn.replace(':mrc', '')
                 repPath = self.getTopLevelPath(DIR_IMAGES,
-                                               f"{self.outputName}_{pwutils.removeBaseExt(itemFn)}.mrc")
+                                               f"{outputName}_{pwutils.removeBaseExt(itemFn)}.mrc")
                 shutil.copy(itemFn, repPath)
             if itemFn.endswith('.vol'): # already copied (because it was previously converted to mrc)
                 repPath = self.getTopLevelPath(DIR_IMAGES,
-                                               f"{self.outputName}_{pwutils.removeBaseExt(itemFn)}.mrc")
-            return f"{self.outputName}_{pwutils.removeBaseExt(itemFn)}_3D", repPath
+                                               f"{outputName}_{pwutils.removeBaseExt(itemFn)}.mrc")
+            return f"{outputName}_{pwutils.removeBaseExt(itemFn)}_3D", repPath
 
         plotPaths = {}
         for a, output in prot.iterOutputAttributes():
@@ -949,12 +948,12 @@ class EmpiarDepositor(EMProtocol):
 
             # Volumes
             if isinstance(output, Volume):
-                name, repPath = getMRCVolume(output)
+                name, repPath = getMRCVolume(output, output.getObjName())
                 plotPaths[name] = repPath
 
             elif isinstance(output, SetOfVolumes):
                 for item in output.iterItems():
-                    name, repPath = getMRCVolume(item)
+                    name, repPath = getMRCVolume(item, output.getObjName())
                     plotPaths[name] = repPath
 
         return plotPaths
