@@ -42,7 +42,7 @@ from pyworkflow.project import config
 from pwem import Domain, emlib
 from pwem.protocols import EMProtocol
 from pwem.objects import (Class2D, Class3D, Image, CTFModel, Volume,
-                          Micrograph, Movie, Particle, SetOfCoordinates, SetOfCTF, SetOfMicrographs)
+                          Micrograph, Movie, Particle, SetOfCoordinates, SetOfCTF, SetOfMicrographs, SetOfVolumes)
 from pwem.viewers import EmPlotter
 import emtable as md
 from math import sqrt
@@ -676,7 +676,7 @@ class EmpiarDepositor(EMProtocol):
                     count += 1
                     repPath = self.getTopLevelPath(DIR_IMAGES, '%s_%s' % (
                         self.outputName, pwutils.replaceBaseExt(micFn, 'jpg')))
-                    self.createThumbnail(micFn, repPath)
+                    self.createThumbnail(micFn, repPath, type=Micrograph)
                     coordinatesDict[micrograph.getMicName()] = {'path': repPath,
                                                                 'Xdim': micrograph.getXDim(),
                                                                 'Ydim': micrograph.getYDim()}
@@ -799,7 +799,9 @@ class EmpiarDepositor(EMProtocol):
                                                '%s_%s_%s' % (self.outputName,
                                                              item.getIndex(),
                                                              pwutils.replaceBaseExt(itemFn, 'jpg')))
-                self.createThumbnail(itemFn, repPath, count)
+                self.createThumbnail(itemFn, repPath,
+                                     Micrograph if isinstance(item, Micrograph) else Particle if isinstance(item, Particle) else None,
+                                     count)
                 itemDict[ITEM_REPRESENTATION] = repPath
 
             elif isinstance(item, CTFModel):
@@ -846,16 +848,18 @@ class EmpiarDepositor(EMProtocol):
 
         return itemDict
 
-    def createThumbnail(self, inputFn, outputFn, count=None):
+    def createThumbnail(self, inputFn, outputFn, type, count=None):
         """ Apply a low pass filter and make a jpg thumbnail. """
         outputFn = self.getProjectPath(outputFn)
-        if inputFn.endswith('.stk'):
-            self._ih.convert(inputFn, outputFn)
-        else:
-            x, y, z, n = self._ih.getDimensions(inputFn)
+        # if inputFn.endswith('.stk'):
+        #     self._ih.convert(inputFn, outputFn)
+        x, y, z, n = self._ih.getDimensions(inputFn)
+        getEnviron = Domain.importFromPlugin('xmipp3', 'Plugin', doRaise=True).getEnviron
+        if type == Particle:
+            args = f" -i {inputFn if n == 1 else f'{count}@{inputFn}'} -o {outputFn}"
+            self.runJob('xmipp_image_convert', args, env=getEnviron())
+        elif type == Micrograph:
             args = f" -i {inputFn if n == 1 else f'{count}@{inputFn}'} -o {outputFn} --fourier low_pass 0.05"
-
-            getEnviron = Domain.importFromPlugin('xmipp3', 'Plugin', doRaise=True).getEnviron
             self.runJob('xmipp_transform_filter', args, env=getEnviron())
 
     def getAdditionalPlots(self, prot):
