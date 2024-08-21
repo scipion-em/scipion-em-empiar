@@ -566,11 +566,14 @@ class EmpiarDepositor(EMProtocol):
                     protDicts[objId]['labelColor'].append(labelsDict[label])
 
             # Get plugin and binary version
-            protDicts[objId]['plugin'] = prot.getPlugin().getName()
-            package = self.getClassPackage()
-            if hasattr(package, "__version__"):
-                protDicts[objId]['pluginVersion'] = package.__version__
-            protDicts[objId]['pluginBinaryVersion'] = prot.getPlugin().getActiveVersion()
+            try:
+                protDicts[objId]['plugin'] = prot.getPlugin().getName()
+                package = self.getClassPackage()
+                if hasattr(package, "__version__"):
+                    protDicts[objId]['pluginVersion'] = package.__version__
+                protDicts[objId]['pluginBinaryVersion'] = prot.getPlugin().getActiveVersion()
+            except:
+                pass
 
         for inputSetPointer in self.inputSets:
             inputSet = inputSetPointer.get()
