@@ -880,6 +880,10 @@ class EmpiarDepositor(EMProtocol):
                 repPath = self.getTopLevelPath(DIR_IMAGES,
                                                f"{outputName}_{pwutils.removeBaseExt(itemFn)}.mrc")
                 shutil.copy(itemFn, repPath)
+            if itemFn.endswith('.map'):
+                repPath = self.getTopLevelPath(DIR_IMAGES,
+                                               f"{outputName}_{pwutils.removeBaseExt(itemFn)}.map")
+                shutil.copy(itemFn, repPath)
             if itemFn.endswith('.vol'): # already copied (because it was previously converted to mrc)
                 repPath = self.getTopLevelPath(DIR_IMAGES,
                                                f"{outputName}_{pwutils.removeBaseExt(itemFn)}.mrc")
