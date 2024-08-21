@@ -964,6 +964,7 @@ class EmpiarDepositor(EMProtocol):
 
     def writeSlices(self, V, fnRoot, direction):
         """ Generate volume slices for x, y and z axis. """
+        V = np.squeeze(V) # for volumes with numpy arrays with 4 dims
         m = np.min(V)
         M = np.max(V)
         V = (V - m) / (M - m) * 255
