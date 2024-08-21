@@ -765,10 +765,10 @@ class EmpiarDepositor(EMProtocol):
                 pwutils.makePath(repDir)
                 if itemFn.endswith('.mrc'):
                     item.setFileName(itemFn + ':mrc')
-                I = emlib.Image(rep.getFileName())
-                I.writeSlices(os.path.join(repDir, 'slicesX'), 'jpg', 'X')
-                I.writeSlices(os.path.join(repDir, 'slicesY'), 'jpg', 'Y')
-                I.writeSlices(os.path.join(repDir, 'slicesZ'), 'jpg', 'Z')
+                V = emlib.Image(rep.getFileName()).getData()
+                self.writeSlices(V, os.path.join(repDir, 'slicesX'), 'X')
+                self.writeSlices(V, os.path.join(repDir, 'slicesY'), 'Y')
+                self.writeSlices(V, os.path.join(repDir, 'slicesZ'), 'Z')
 
                 if '_size' in itemDict:  # write number of particles over a class image
                     text = itemDict['_size'] + " ptcls"
