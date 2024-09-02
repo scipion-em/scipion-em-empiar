@@ -778,7 +778,7 @@ class EmpiarDepositor(EMProtocol):
                     draw.text((5, H - 15), text, fill=(0, 255, 0))
                     image.save(os.path.join(repDir, 'slicesX_0000.jpg'), quality=95)
 
-                itemDict[ITEM_REPRESENTATION] = repDir
+                itemDict[ITEM_REPRESENTATION] = [os.path.join(repDir, file) for file in sorted(os.listdir(repDir))]
 
             elif isinstance(item, Volume):
                 itemFn = item.getFileName()
@@ -799,7 +799,7 @@ class EmpiarDepositor(EMProtocol):
                 self.writeSlices(V, os.path.join(repDir, 'slicesY'), 'Y')
                 self.writeSlices(V, os.path.join(repDir, 'slicesZ'), 'Z')
 
-                itemDict[ITEM_REPRESENTATION] = repDir
+                itemDict[ITEM_REPRESENTATION] = [os.path.join(repDir, file) for file in sorted(os.listdir(repDir))]
 
             elif isinstance(item, Image):
                 itemFn = item.getFileName()
