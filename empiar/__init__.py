@@ -48,7 +48,7 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def defineBinaries(cls, env):
-        empiar_cmd = [('./ibm-aspera-connect_4.2.12.780_linux_x86_64.tar.gz', [])]
+        empiar_cmd = [('./ibm-aspera-connect_4.2.12.780_linux_x86_64.sh', [])]
         # url = 'https://d3gcli72yxqn2z.cloudfront.net/downloads/connect/latest/bin/ibm-aspera-connect_4.2.11.768_linux_x86_64.tar.gz'
         url = 'https://d3gcli72yxqn2z.cloudfront.net/downloads/connect/latest/bin/ibm-aspera-connect_4.2.12.780_linux_x86_64.tar.gz'
         env.addPackage('ascp', version="4.2.12",
@@ -56,5 +56,5 @@ class Plugin(pwem.Plugin):
                        default=True,
                        buildDir='ascp',
                        createBuildDir=True,
-                       target='ascp/ibm-aspera-connect_4.2.12.780_linux_x86_64.tar.gz',
+                       target='ascp/ibm-aspera-connect_4.2.12.780_linux_x86_64.sh',
                        commands=empiar_cmd)
