@@ -45,10 +45,7 @@ class EmpiarDownloader(EMProtocol):
 
     _label = 'empiar downloader'
     _possibleOutputs = {"outputMovies": SetOfMovies}
-
-    def __init__(self, **args):
-        EMProtocol.__init__(self, **args)
-        self.stepsExecutionMode = STEPS_PARALLEL
+    stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -104,10 +101,12 @@ class EmpiarDownloader(EMProtocol):
 
         line.addParam('doseInitial', params.FloatParam, default=0,
                       label='Initial')
-        
+
         line.addParam('dosePerFrame', params.FloatParam, default=None,
                       allowsNull=True,
                       label='Per frame')
+
+        form.addParallelSection(threads=3, mpi=0)
 
     def _acquisitionWizardCondition(self):
         """ Used from define Acquisition param. For this case wizard is not available."""
@@ -116,9 +115,13 @@ class EmpiarDownloader(EMProtocol):
     def _insertAllSteps(self):
         readXmlStepId = self._insertFunctionStep(self.readEmpiarMetadataStep,
                                                  prerequisites=[])
-        gainStepId = self._insertFunctionStep(self.downloadGainStep,
+
+        stepDeps = [readXmlStepId]
+
+        if self.downloadGain:
+            gainStepId = self._insertFunctionStep(self.downloadGainStep,
                                               prerequisites=[])
-        stepDeps = [readXmlStepId, gainStepId]
+            stepDeps.append(gainStepId)
 
         downloadStepId = self._insertFunctionStep(self.downloadImagesStep,
                                                   prerequisites=stepDeps)
