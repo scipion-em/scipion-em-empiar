@@ -1,11 +1,14 @@
+3.1.1:
+  - fix installer
+  - Downloader parallelized for the gain step if necessary.
 3.1:
-    - update plugin files
-    - EMPIAR_DEVEL_MODE is True or False
-    - refactor depositor protocol: reduce number of queries
-    - downloader improvements: add filter by format, search for only movie datasets, add xml/mdoc
+  - update plugin files
+  - EMPIAR_DEVEL_MODE is True or False
+  - refactor depositor protocol: reduce number of queries
+  - downloader improvements: add filter by format, search for only movie datasets, add xml/mdoc
 3.0.1:
-    - ported to Scipion 3 / python 3
-    - updated deposition schema from upstream (1.6b20, 20200429)
+  - ported to Scipion 3 / python 3
+  - updated deposition schema from upstream (1.6b20, 20200429)
 V1.0.0b2, 21/11/2018 -- Change author
 V1.0.0b1, 21/11/2018 -- Add category mapping
 V1.0.0a4, 23/10/2018 -- Add a PIP module files
