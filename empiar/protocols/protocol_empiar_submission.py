@@ -696,17 +696,21 @@ class EmpiarDepositor(EMProtocol):
 
                 for micrograph, values in coordinatesDict.items():  # draw coordinates in micrographs jpgs
                     if 'coords' in values:
-                        image = ImagePIL.open(values['path']).convert('RGB')
-                        W_mic = values['Xdim']
-                        H_mic = values['Ydim']
-                        W_jpg, H_jpg = image.size
-                        draw = ImageDraw.Draw(image)
-                        r = W_jpg / 256
-                        for coord in values['coords']:
-                            x = coord[0] * (W_jpg / W_mic)
-                            y = coord[1] * (H_jpg / H_mic)
-                            draw.ellipse((x - r, y - r, x + r, y + r), fill=(0, 255, 0))
-                        image.save(values['path'], quality=95)
+                        try:
+                            image = ImagePIL.open(os.path.join(self.getProject().path, values['path'])).convert('RGB')
+                            W_mic = values['Xdim']
+                            H_mic = values['Ydim']
+                            W_jpg, H_jpg = image.size
+                            draw = ImageDraw.Draw(image)
+                            r = W_jpg / 256
+                            for coord in values['coords']:
+                                x = coord[0] * (W_jpg / W_mic)
+                                y = coord[1] * (H_jpg / H_mic)
+                                draw.ellipse((x - r, y - r, x + r, y + r), fill=(0, 255, 0))
+                            image.save(values['path'], quality=95)
+                        except Exception as e:
+                            print(f"Something happened while trying to draw coordinates in micrograph: {e}")
+                            pass
 
             else:
                 for item in output.iterItems():
@@ -869,7 +873,11 @@ class EmpiarDepositor(EMProtocol):
             self.runJob('xmipp_image_convert', args, env=getEnviron())
         elif type == Micrograph:
             args = f" -i {inputFn if n == 1 else f'{count}@{inputFn}'} -o {outputFn} --fourier low_pass 0.05"
-            self.runJob('xmipp_transform_filter', args, env=getEnviron())
+            try:
+                self.runJob('xmipp_transform_filter', args, env=getEnviron())
+            except Exception as e:
+                print(f"There was a problem creating the thumbnail: {e}")
+                pass
 
     def getAdditionalPlots(self, prot):
         """ Generate additional plots apart from basic thumbnails. """
@@ -879,11 +887,23 @@ class EmpiarDepositor(EMProtocol):
                 itemFn = itemFn.replace(':mrc', '')
                 repPath = self.getTopLevelPath(DIR_IMAGES,
                                                f"{outputName}_{pwutils.removeBaseExt(itemFn)}.mrc")
-                shutil.copy(itemFn, repPath)
+                itemFn = os.path.join(self.getProject().path, itemFn)
+                repPath = os.path.join(self.getProject().path, repPath)
+                try:
+                    shutil.copy(itemFn, repPath)
+                except Exception as e:
+                    print(f"There was a problem copying the volume: {e}")
+                    pass
             if itemFn.endswith('.map'):
                 repPath = self.getTopLevelPath(DIR_IMAGES,
                                                f"{outputName}_{pwutils.removeBaseExt(itemFn)}.map")
-                shutil.copy(itemFn, repPath)
+                itemFn = os.path.join(self.getProject().path, itemFn)
+                repPath = os.path.join(self.getProject().path, repPath)
+                try:
+                    shutil.copy(itemFn, repPath)
+                except Exception as e:
+                    print(f"There was a problem copying the volume: {e}")
+                    pass
             if itemFn.endswith('.vol'): # already copied (because it was previously converted to mrc)
                 repPath = self.getTopLevelPath(DIR_IMAGES,
                                                f"{outputName}_{pwutils.removeBaseExt(itemFn)}.mrc")
