@@ -32,6 +32,9 @@ from empiar.constants import ASPERA_PASS, ASCP_PATH, EMPIAR_TOKEN
 
 
 __version__ = '3.1.1'
+
+from pyworkflow import SPA
+
 _references = ['Iudin2016']
 _logo = 'EMPIAR_logo.png'
 
@@ -39,6 +42,7 @@ _logo = 'EMPIAR_logo.png'
 class Plugin(pwem.Plugin):
     _pathVars = []
     _url = "https://github.com/scipion-em/scipion-em-empiar"
+    _processingField = [SPA]
 
     @classmethod
     def _defineVariables(cls):
