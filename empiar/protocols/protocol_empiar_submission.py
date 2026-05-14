@@ -101,6 +101,36 @@ class EmpiarDepositor(EMProtocol):
     """
     Deposits image sets to EMPIAR.
     """
+    """
+    Class Overview
+    The EmpiarDepositor class is a Scipion protocol that automates the deposition
+    of image sets and processing workflows to the EMPIAR archive. It manages
+    metadata collection, file preparation, and server communication.
+
+    Key Technical Components
+
+    Metadata and Parameters
+    The protocol captures administrative and scientific data, including author
+    details, PI information, and experiment types such as tomography or FIB-SEM.
+    It also configures public release dates based on EMDB status or publication.
+
+    Data Preparation and Visualization
+    The protocol exports Scipion project history into a standardized JSON format
+    and extracts technical specifications from image sets. It includes a local
+    web viewer for workflow previews and generates thumbnails with coordinate
+    overlays for visual data verification.
+
+    Deposition and Maintenance
+    Final transmission is managed via the empiar-depositor tool and Aspera
+    protocols. The class also handles post-submission requests, such as linking
+    EMDB accession codes to existing entries through a dedicated API.
+
+    Implementation Details
+    The class maps Scipion objects to archive-compliant formats and validates
+    environment credentials like security tokens before execution. It maintains
+    deposition state by tracking entry IDs and directory paths throughout the process.
+    """
+
     _label = 'empiar deposition'
     _ih = emlib.image.ImageHandler()
 

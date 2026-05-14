@@ -42,7 +42,89 @@ FTP_EBI_AC_UK = 'ftp.ebi.ac.uk'
 
 class EmpiarDownloader(EMProtocol):
     """ Downloads movies from EMPIAR and registers them. """
+    """
+        Downloads and registers cryo-EM movies from the EMPIAR database.
 
+        AI Generated:
+
+        EMPIAR Downloader (EmpiarDownloader) — User Manual
+            Overview
+
+            The EMPIAR Downloader protocol retrieves cryo-EM movie datasets directly
+            from the EMPIAR repository and registers them inside the Scipion project
+            environment. Its purpose is to simplify access to publicly available
+            experimental datasets while preserving the metadata required for further
+            image processing workflows.
+
+            In practical cryo-EM workflows, this protocol is commonly used during
+            dataset preparation and benchmarking experiments. Researchers can quickly
+            import raw movies from EMPIAR entries and immediately integrate them into
+            preprocessing pipelines such as motion correction, CTF estimation, or
+            particle picking.
+
+            Inputs and Download Configuration
+
+            The protocol requires an EMPIAR entry identifier together with a local
+            download directory where the files will be stored. Users can optionally
+            limit the number of downloaded files or filter the download by file
+            extension in order to retrieve only specific movie formats.
+
+            An optional gain reference can also be included. The gain file may be
+            downloaded directly from a remote FTP address or provided locally from an
+            existing path. This allows proper detector normalization during later
+            preprocessing stages.
+
+            Acquisition Parameters
+
+            Since EMPIAR datasets do not always provide complete acquisition metadata,
+            the protocol allows manual definition of microscope parameters such as
+            magnification, voltage, spherical aberration, amplitude contrast, and
+            electron dose. These parameters are attached to the generated movie set
+            and become available for downstream cryo-EM processing.
+
+            Download Workflow
+
+            The protocol first retrieves metadata from the EMPIAR API, including the
+            dataset title, sampling rate, file format, and remote directory structure.
+            Afterwards, it downloads the gain reference if requested and proceeds to
+            retrieve the movie files from the EMPIAR FTP server.
+
+            Downloaded movies are linked into the Scipion project structure and
+            automatically registered as a SetOfMovies output. During registration,
+            frame ranges, sampling rate, and acquisition information are assigned to
+            each imported movie.
+
+            Outputs and Interpretation
+
+            After execution, the protocol generates a SetOfMovies object containing
+            all successfully downloaded movies together with their associated metadata.
+            If a gain reference was provided, it is linked and assigned to the movie
+            set automatically.
+
+            The resulting dataset can then be used directly in standard cryo-EM
+            preprocessing workflows inside Scipion.
+
+            Practical Recommendations
+
+            For routine usage, it is recommended to verify that the selected EMPIAR
+            entry contains the expected movie format before starting large downloads.
+            Using extension filters can significantly reduce download time and storage
+            requirements when datasets contain auxiliary files.
+
+            When testing workflows or benchmarking pipelines, downloading only a
+            subset of movies is often sufficient and can accelerate exploratory
+            analyses. For production workflows, ensuring correct acquisition metadata
+            and gain references is important for obtaining reliable downstream
+            processing results.
+
+            Final Perspective
+
+            The EMPIAR Downloader protocol provides an efficient bridge between the
+            EMPIAR public archive and Scipion processing environments. By automating
+            dataset retrieval, metadata registration, and movie integration, it
+            simplifies the preparation of cryo-EM datasets for reproducible and
+            scalable image processing workflows.
+        """
     _label = 'empiar downloader'
     _possibleOutputs = {"outputMovies": SetOfMovies}
     stepsExecutionMode = STEPS_PARALLEL
